@@ -58,8 +58,8 @@ export default function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // دالة ضغط الصور لضمان عدم تجاوز حجم مستند Firestore (1MB limit)
-  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+  // دالة متطورة لضغط الصور وتقليل حجمها لضمان توافقها مع Firestore
+  const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
@@ -83,8 +83,12 @@ export default function App() {
         canvas.width = width;
         canvas.height = height;
         const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        // نستخدم جودة 0.6 (60%) لضمان حجم ملف صغير جداً وسرعة في الرفع
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, width, height);
+        }
+        // جودة 0.6 توفر توازناً مثالياً بين الحجم والوضوح
         resolve(canvas.toDataURL('image/jpeg', 0.6));
       };
     });
@@ -316,7 +320,7 @@ export default function App() {
           await fetchData(true);
         } catch (err) {
           console.error("Gallery upload error:", err);
-          alert("حدث خطأ أثناء رفع الصور، يرجى المحاولة بصورة أخرى.");
+          alert("حدث خطأ أثناء رفع الصور، ربما حجم الصور كبير جداً.");
         } finally {
           setIsSaving(false);
         }
@@ -457,6 +461,7 @@ export default function App() {
     const [newPostContent, setNewPostContent] = useState('');
     const [newPostImage, setNewPostImage] = useState('');
     const [isPosting, setIsPosting] = useState(false);
+    const [isProcessingImage, setIsProcessingImage] = useState(false);
     const postImageInputRef = useRef<HTMLInputElement>(null);
 
     const handlePost = async () => {
@@ -475,7 +480,7 @@ export default function App() {
         await fetchData(true);
       } catch (err) {
         console.error("Error posting:", err);
-        alert("حدث خطأ أثناء النشر، ربما حجم الصورة كبير جداً. يرجى المحاولة مرة أخرى.");
+        alert("عذراً، حدث خطأ أثناء النشر. يرجى التأكد من اتصال الإنترنت والمحاولة مرة أخرى.");
       } finally {
         setIsPosting(false);
       }
@@ -484,13 +489,17 @@ export default function App() {
     const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) {
+        setIsProcessingImage(true);
         try {
           const base64 = await fileToBase64(file);
-          // ضغط الصورة فور اختيارها لضمان سلاسة العملية
+          // ضغط الصورة فوراً لضمان سرعة الرفع وتجاوز قيود الحجم
           const compressed = await compressImage(base64);
           setNewPostImage(compressed);
         } catch (err) {
           console.error("Post image upload error:", err);
+          alert("خطأ في معالجة الصورة المختارة.");
+        } finally {
+          setIsProcessingImage(false);
         }
       }
     };
@@ -500,7 +509,7 @@ export default function App() {
         <div className="flex items-center justify-between mb-12 text-right">
           <div className="w-full text-right">
             <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4 italic justify-end">ملتقى الفرق <Hash className="text-blue-600 w-10 h-10" /></h2>
-            <p className="text-slate-400 font-bold">هنا تنشر الفرق أخبارها وتتفاعل مع بعضها البعض</p>
+            <p className="text-slate-400 font-bold">يمكنك نشر أخبار فريقك (نصياً) أو مشاركة لقطات مميزة (صور)</p>
           </div>
         </div>
         
@@ -512,32 +521,40 @@ export default function App() {
                 <textarea 
                   value={newPostContent} 
                   onChange={e => setNewPostContent(e.target.value)} 
-                  placeholder={`ما الجديد في فريق ${user.team_name}؟`} 
+                  placeholder={`اكتب فقرة عن فريق ${user.team_name}...`} 
                   className="w-full p-6 bg-slate-50 border-none rounded-[2rem] outline-none focus:ring-4 ring-blue-500/5 resize-none h-40 text-lg font-medium placeholder:text-slate-300 text-right" 
                 />
                 
+                {isProcessingImage && (
+                  <div className="flex items-center gap-2 text-blue-600 font-black text-sm justify-end p-2 bg-blue-50 rounded-xl">
+                    <span>جاري ضغط ومعالجة الصورة...</span>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  </div>
+                )}
+
                 {newPostImage && (
-                  <div className="relative inline-block group float-right">
-                    <img src={newPostImage} className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg" />
-                    <button onClick={() => setNewPostImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><X className="w-4 h-4" /></button>
+                  <div className="relative inline-block group float-right mb-4">
+                    <img src={newPostImage} className="w-48 h-48 rounded-2xl object-cover border-4 border-white shadow-lg" />
+                    <button onClick={() => setNewPostImage('')} className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform"><X className="w-5 h-5" /></button>
                   </div>
                 )}
 
                 <div className="flex flex-col md:flex-row items-center gap-4 clear-both pt-4">
                   <button 
                     onClick={handlePost} 
-                    disabled={isPosting || (!newPostContent.trim() && !newPostImage)} 
+                    disabled={isPosting || isProcessingImage || (!newPostContent.trim() && !newPostImage)} 
                     className="w-full md:w-auto px-12 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
                   >
-                    {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر الآن
+                    {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر المنشور
                   </button>
                   <div className="flex-1 w-full">
                     <input type="file" ref={postImageInputRef} className="hidden" accept="image/*" onChange={handlePostImageUpload} />
                     <button 
                       onClick={() => postImageInputRef.current?.click()}
-                      className="w-full pr-6 pl-4 py-4 bg-slate-50 rounded-2xl text-sm font-bold border-none outline-none flex items-center gap-3 text-slate-400 hover:bg-slate-100 transition-all justify-end"
+                      disabled={isProcessingImage || isPosting}
+                      className="w-full pr-6 pl-4 py-4 bg-slate-50 rounded-2xl text-sm font-bold border-none outline-none flex items-center gap-3 text-slate-400 hover:bg-slate-100 transition-all justify-end disabled:opacity-50"
                     >
-                      {newPostImage ? 'تغيير الصورة المرفقة' : 'إرفاق صورة من الجهاز'} <ImageIcon className="w-5 h-5" />
+                      {newPostImage ? 'تغيير الصورة' : 'إضافة صورة للمنشور'} <ImageIcon className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
@@ -548,7 +565,7 @@ export default function App() {
         ) : (
           <div className="bg-blue-600 text-white p-12 rounded-[3.5rem] shadow-xl text-center mb-12 relative overflow-hidden">
             <h3 className="text-3xl font-black mb-4">سجل دخولك لتشارك في الملتقى</h3>
-            <p className="text-blue-100 mb-10 text-lg opacity-80">جميع منشورات الفرق تظهر هنا للجميع. تفاعل مع مجتمعك الرياضي الآن!</p>
+            <p className="text-blue-100 mb-10 text-lg opacity-80">نشر الفقرات والصور متاح فقط للفرق المسجلة. انضم إلينا الآن!</p>
             <button onClick={() => setCurrentView('login')} className="px-14 py-4 bg-white text-blue-600 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform active:scale-95">تسجيل الدخول</button>
           </div>
         )}
