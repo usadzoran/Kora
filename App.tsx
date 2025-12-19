@@ -6,10 +6,10 @@ import {
   Trophy, Shield, Loader2, Radio, ExternalLink, RefreshCw, LogOut, Save, Copy, Check, User, 
   LayoutGrid, Image as ImageIcon, Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, 
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
-  Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert
+  Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle
 } from 'lucide-react';
 
-type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login';
+type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw';
 
 const SESSION_KEY = 'kora_logged_team_id';
 const ADMIN_KEY = 'kora_is_admin';
@@ -118,7 +118,6 @@ export default function App() {
         FirebaseService.getPosts()
       ]);
       setLiveChannels(channels);
-      // إخفاء حساب المشرف من العرض العام
       setAllTeams(teams.filter(t => t.contact_email !== ADMIN_CREDS.email));
       setPosts(hubPosts);
     } catch (err: any) {
@@ -156,7 +155,6 @@ export default function App() {
     window.location.hash = '';
   };
 
-  // Fixed: handleSecretClick added to allow admin portal access after 7 clicks on the footer trophy.
   const handleSecretClick = () => {
     const newCount = adminClickCount + 1;
     setAdminClickCount(newCount);
@@ -165,6 +163,118 @@ export default function App() {
       setAdminClickCount(0);
       window.location.hash = 'admin-access';
     }
+  };
+
+  const DrawView = () => {
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [opponent, setOpponent] = useState<TeamRegistration | null>(null);
+    const [shufflingIndex, setShufflingIndex] = useState(0);
+
+    const startDraw = () => {
+      if (allTeams.length <= 1) {
+        alert("لا يوجد فرق كافية لإجراء القرعة حالياً.");
+        return;
+      }
+      
+      setIsDrawing(true);
+      setOpponent(null);
+      
+      // استبعاد فريق المستخدم الحالي من القرعة
+      const availableOpponents = allTeams.filter(t => t.id !== user?.id);
+      
+      // محاكاة تأثير القرعة (Shuffle)
+      let count = 0;
+      const interval = setInterval(() => {
+        setShufflingIndex(Math.floor(Math.random() * availableOpponents.length));
+        count++;
+        if (count > 20) {
+          clearInterval(interval);
+          const finalOpponent = availableOpponents[Math.floor(Math.random() * availableOpponents.length)];
+          setOpponent(finalOpponent);
+          setIsDrawing(false);
+        }
+      }, 100);
+    };
+
+    if (!user) {
+      return (
+        <div className="max-w-md mx-auto py-24 px-6 text-center">
+          <div className="bg-slate-900 text-white p-12 rounded-[3rem] shadow-2xl">
+            <Shuffle className="w-16 h-16 text-blue-500 mx-auto mb-6 animate-pulse" />
+            <h3 className="text-2xl font-black mb-4">قرعة البطولة</h3>
+            <p className="text-slate-400 mb-8 font-bold">يجب عليك تسجيل الدخول بفريقك لتتمكن من إجراء القرعة واختيار الخصم.</p>
+            <button onClick={() => setCurrentView('login')} className="bg-blue-600 px-10 py-4 rounded-xl font-black hover:scale-105 transition-all">دخول النادي</button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 text-center">
+        <div className="mb-12">
+          <h2 className="text-4xl md:text-5xl font-black italic tracking-tighter mb-4">قرعة البطولة الآلية</h2>
+          <p className="text-slate-500 font-bold">اترك القدر يختار خصمك القادم في البطولة!</p>
+        </div>
+
+        <div className="relative bg-white rounded-[3rem] p-8 md:p-16 shadow-2xl border border-slate-100 overflow-hidden min-h-[500px] flex flex-col items-center justify-center">
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+          
+          {!opponent && !isDrawing ? (
+            <div className="animate-in fade-in zoom-in duration-500">
+               <div className="w-32 h-32 bg-blue-600/5 rounded-full flex items-center justify-center mx-auto mb-8 border-4 border-dashed border-blue-600/20">
+                 <Trophy className="w-12 h-12 text-blue-600" />
+               </div>
+               <h3 className="text-2xl font-black mb-10">هل أنت مستعد للتحدي؟</h3>
+               <button 
+                 onClick={startDraw}
+                 className="group relative px-12 py-6 bg-blue-600 text-white rounded-3xl font-black text-xl shadow-2xl hover:bg-blue-700 transition-all active:scale-95"
+               >
+                 <span className="relative z-10 flex items-center gap-3">ابدأ القرعة الآن <Shuffle className="w-6 h-6" /></span>
+                 <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 rounded-3xl transition-opacity"></div>
+               </button>
+            </div>
+          ) : (
+            <div className="w-full">
+               <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-20">
+                  {/* فريق المستخدم */}
+                  <div className="text-center animate-in slide-in-from-right duration-700">
+                    <img src={user.logo_url} className="w-32 h-32 md:w-44 md:h-44 rounded-[2.5rem] border-8 border-white shadow-2xl bg-white object-cover mx-auto" />
+                    <p className="mt-4 font-black text-xl">{user.team_name}</p>
+                    <span className="text-[10px] text-blue-500 font-bold uppercase tracking-widest">فريقك</span>
+                  </div>
+
+                  <div className="relative">
+                    <div className="text-5xl md:text-8xl font-black text-slate-100 italic select-none">VS</div>
+                    {isDrawing && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="w-12 h-12 text-blue-600 animate-spin" /></div>}
+                  </div>
+
+                  {/* الخصم المختار */}
+                  <div className={`text-center transition-all duration-300 ${isDrawing ? 'scale-90 opacity-50' : 'animate-in slide-in-from-left duration-700'}`}>
+                    <img 
+                      src={isDrawing ? allTeams[shufflingIndex]?.logo_url : (opponent?.logo_url || 'https://via.placeholder.com/200?text=?')} 
+                      className={`w-32 h-32 md:w-44 md:h-44 rounded-[2.5rem] border-8 border-white shadow-2xl bg-white object-cover mx-auto transition-all ${isDrawing ? 'blur-sm' : 'blur-0'}`} 
+                    />
+                    <p className="mt-4 font-black text-xl">{isDrawing ? 'جاري السحب...' : (opponent?.team_name || 'الخصم')}</p>
+                    <span className="text-[10px] text-rose-500 font-bold uppercase tracking-widest">{isDrawing ? 'عملية عشوائية' : 'الخصم القادم'}</span>
+                  </div>
+               </div>
+
+               {opponent && !isDrawing && (
+                 <div className="mt-16 animate-in fade-in slide-in-from-bottom duration-1000">
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 mb-8 max-w-md mx-auto">
+                       <p className="text-slate-600 font-bold">ستواجه فريق <span className="text-blue-600">{opponent.team_name}</span> من منطقة <span className="text-blue-600">{opponent.region}</span>.</p>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                       <button onClick={startDraw} className="px-8 py-4 bg-slate-100 text-slate-600 rounded-xl font-black hover:bg-slate-200 transition-all flex items-center justify-center gap-2">إعادة القرعة <RefreshCw className="w-4 h-4" /></button>
+                       <button onClick={() => setCurrentView('hub')} className="px-8 py-4 bg-blue-600 text-white rounded-xl font-black shadow-lg hover:bg-blue-700 transition-all">إعلان التحدي في الملتقى</button>
+                    </div>
+                 </div>
+               )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const PostCard: React.FC<{ post: Post; currentUser: TeamRegistration | null; onRefresh: () => void }> = ({ post, currentUser, onRefresh }) => {
@@ -277,7 +387,6 @@ export default function App() {
     const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
       if (e.target.files && user.id) {
         setIsSaving(true);
-        // Fixed: Argument of type 'unknown' is not assignable to parameter of type 'File' by adding explicit cast to File[]
         for (const file of Array.from(e.target.files) as File[]) {
           const base64 = await fileToBase64(file);
           const compressed = await compressImage(base64);
@@ -458,6 +567,7 @@ export default function App() {
     switch (currentView) {
       case 'profile': return <ProfileView />;
       case 'hub': return <HubView />;
+      case 'draw': return <DrawView />;
       case 'live': return (
         <div className="max-w-7xl mx-auto py-12 px-6 pb-24 md:pb-12 text-right">
           <h2 className="text-4xl font-black flex items-center gap-4 justify-end italic mb-12">قنوات البث المباشر <Radio className="text-red-600 animate-pulse" /></h2>
@@ -521,7 +631,7 @@ export default function App() {
                <p className="text-slate-400 text-2xl mb-16 font-light max-w-2xl mx-auto leading-relaxed italic px-4">مجتمع رياضي رقمي متكامل لإدارة الفرق، النتائج، والبث المباشر بأعلى التقنيات.</p>
                <div className="flex flex-col md:flex-row justify-center gap-6 px-4">
                  <button onClick={() => setCurrentView('register')} className="w-full md:w-auto px-14 py-6 bg-blue-600 rounded-[2rem] font-black text-xl shadow-2xl active:scale-95 transition-all">سجل فريقك</button>
-                 <button onClick={() => setCurrentView('hub')} className="w-full md:w-auto px-14 py-6 bg-white/10 rounded-[2rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md">ملتقى الفرق</button>
+                 <button onClick={() => setCurrentView('draw')} className="w-full md:w-auto px-14 py-6 bg-white/10 rounded-[2rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md flex items-center justify-center gap-2">قرعة البطولة <Shuffle className="w-6 h-6" /></button>
                </div>
              </div>
           </section>
@@ -557,6 +667,7 @@ export default function App() {
         <div className="hidden lg:flex gap-12 text-[11px] font-black uppercase tracking-widest text-slate-400">
            <button onClick={() => {setCurrentView('home'); window.location.hash = '';}} className={`hover:text-blue-600 transition-colors ${currentView === 'home' ? 'text-blue-600' : ''}`}>الرئيسية</button>
            <button onClick={() => setCurrentView('hub')} className={`hover:text-blue-600 transition-colors ${currentView === 'hub' ? 'text-blue-600' : ''}`}>الملتقى</button>
+           <button onClick={() => setCurrentView('draw')} className={`hover:text-blue-600 transition-colors ${currentView === 'draw' ? 'text-blue-600' : ''}`}>القرعة</button>
            <button onClick={() => setCurrentView('live')} className={`hover:text-blue-600 transition-colors ${currentView === 'live' ? 'text-red-600' : ''}`}>مباشر</button>
         </div>
         <div className="flex items-center gap-5">
@@ -585,6 +696,7 @@ export default function App() {
               {isUserMenuOpen && (
                 <div className="absolute top-full left-0 mt-3 w-64 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-2 z-[100] text-right">
                   <button onClick={() => {setCurrentView('profile'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 font-bold">بروفايل النادي <User className="w-5 h-5" /></button>
+                  <button onClick={() => {setCurrentView('draw'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 font-bold">قرعة البطولة <Shuffle className="w-5 h-5" /></button>
                   <div className="mt-2 pt-2 border-t border-slate-50"><button onClick={handleLogout} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-500 font-bold">تسجيل الخروج <LogOut className="w-5 h-5" /></button></div>
                 </div>
               )}
@@ -602,6 +714,7 @@ export default function App() {
         <div className="bg-slate-900/90 backdrop-blur-xl border border-white/10 h-16 rounded-2xl shadow-2xl flex items-center justify-around px-2 text-slate-500">
            <button onClick={() => { setCurrentView('home'); window.location.hash = ''; }} className={`flex flex-col items-center gap-1 ${currentView === 'home' ? 'text-blue-400' : ''}`}><Home className="w-5 h-5" /><span className="text-[9px] font-bold">الرئيسية</span></button>
            <button onClick={() => setCurrentView('hub')} className={`flex flex-col items-center gap-1 ${currentView === 'hub' ? 'text-blue-400' : ''}`}><Hash className="w-5 h-5" /><span className="text-[9px] font-bold">الملتقى</span></button>
+           <button onClick={() => setCurrentView('draw')} className={`flex flex-col items-center gap-1 ${currentView === 'draw' ? 'text-blue-400' : ''}`}><Shuffle className="w-5 h-5" /><span className="text-[9px] font-bold">القرعة</span></button>
            <button onClick={() => setCurrentView('live')} className={`flex flex-col items-center gap-1 ${currentView === 'live' ? 'text-red-400' : ''}`}><Radio className="w-5 h-5" /><span className="text-[9px] font-bold">مباشر</span></button>
            {(user || isAdmin) && ( <button onClick={() => setCurrentView(isAdmin ? 'admin' : 'profile')} className={`flex flex-col items-center gap-1 ${currentView === 'profile' || currentView === 'admin' ? 'text-blue-400' : ''}`}>{isAdmin ? <Lock className="w-5 h-5" /> : <User className="w-5 h-5" />}<span className="text-[9px] font-bold">{isAdmin ? 'إدارة' : 'بروفايل'}</span></button> )}
         </div>
