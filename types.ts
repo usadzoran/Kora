@@ -49,9 +49,14 @@ export interface LiveChannel {
 
 export interface AdConfig {
   under_header: string;
+  home_hero_bottom: string;
   after_draw: string;
   hub_top: string;
   hub_bottom: string;
+  matches_top: string;
+  matches_bottom: string;
+  live_top: string;
+  profile_top: string;
 }
 
 export interface Match {
@@ -62,12 +67,12 @@ export interface Match {
   awayTeamId: string;
   awayTeamName: string;
   awayTeamLogo: string;
-  date: string; // مثال: 2024-05-20
-  time: string; // مثال: 18:00
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
   scoreHome: number;
   scoreAway: number;
   status: 'upcoming' | 'finished' | 'live';
-  tournament_round?: string; // مثال: نصف النهائي
+  tournament_round?: string;
   created_at: any;
 }
 

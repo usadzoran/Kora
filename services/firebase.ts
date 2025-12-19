@@ -85,12 +85,33 @@ export const FirebaseService = {
     try {
       const docRef = doc(db, "settings", "ads");
       const docSnap = await getDoc(docRef);
+      const defaultAds: AdConfig = { 
+        under_header: "", 
+        home_hero_bottom: "",
+        after_draw: "", 
+        hub_top: "", 
+        hub_bottom: "", 
+        matches_top: "",
+        matches_bottom: "",
+        live_top: "",
+        profile_top: ""
+      };
       if (docSnap.exists()) {
-        return docSnap.data() as AdConfig;
+        return { ...defaultAds, ...docSnap.data() } as AdConfig;
       }
-      return { under_header: "", after_draw: "", hub_top: "", hub_bottom: "" };
+      return defaultAds;
     } catch (error) {
-      return { under_header: "", after_draw: "", hub_top: "", hub_bottom: "" };
+      return { 
+        under_header: "", 
+        home_hero_bottom: "",
+        after_draw: "", 
+        hub_top: "", 
+        hub_bottom: "", 
+        matches_top: "",
+        matches_bottom: "",
+        live_top: "",
+        profile_top: ""
+      };
     }
   },
 
