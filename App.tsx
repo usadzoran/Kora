@@ -14,6 +14,12 @@ type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'a
 const SESSION_KEY = 'kora_logged_team_id';
 const ADMIN_KEY = 'kora_is_admin';
 
+// بيانات المسؤول الجديدة (مشفرة برمجياً)
+const ADMIN_CREDS = {
+  email: "koradz@tournament.com",
+  pass: "vampirewahab31"
+};
+
 const PermissionAlert: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const rulesCode = `rules_version = '2';
@@ -86,6 +92,16 @@ export default function App() {
     });
   };
 
+  // Fix: Added missing fileToBase64 utility function
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const fetchData = async (silent = false) => {
     if (!silent) setIsLoading(true);
     else setIsRefreshing(true);
@@ -119,15 +135,15 @@ export default function App() {
   useEffect(() => {
     fetchData();
     
-    // إدارة الرابط السري للمشرف
+    // الرابط السري للمشرف
     const handleHashChange = () => {
-      if (window.location.hash === '#admin-portal') {
+      if (window.location.hash === '#admin-access') {
         setCurrentView('admin-login');
       }
     };
     
     window.addEventListener('hashchange', handleHashChange);
-    if (window.location.hash === '#admin-portal') setCurrentView('admin-login');
+    if (window.location.hash === '#admin-access') setCurrentView('admin-login');
 
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) { setIsUserMenuOpen(false); }
@@ -152,7 +168,7 @@ export default function App() {
   const handleSecretClick = () => {
     const newCount = adminClickCount + 1;
     setAdminClickCount(newCount);
-    if (newCount === 5) {
+    if (newCount === 7) {
       setCurrentView('admin-login');
       setAdminClickCount(0);
     }
@@ -342,15 +358,6 @@ export default function App() {
     );
   };
 
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const PostCard: React.FC<{ post: Post; currentUser: TeamRegistration | null; onRefresh: () => void }> = ({ post, currentUser, onRefresh }) => {
     const [showComments, setShowComments] = useState(false);
     const [commentText, setCommentText] = useState('');
@@ -409,7 +416,7 @@ export default function App() {
               </div>
             </div>
             {isAdmin && (
-              <button onClick={async () => { if(confirm('حذف؟')) { await FirebaseService.deletePost(post.id!); onRefresh(); } }} className="text-rose-500 hover:text-rose-700 p-2 bg-rose-50 rounded-xl transition-all">
+              <button onClick={async () => { if(confirm('حذف المنشور؟')) { await FirebaseService.deletePost(post.id!); onRefresh(); } }} className="text-rose-500 hover:text-rose-700 p-2 bg-rose-50 rounded-xl transition-all">
                 <Trash2 className="w-5 h-5" />
               </button>
             )}
@@ -706,15 +713,14 @@ export default function App() {
           <div className="bg-blue-600 w-20 h-20 rounded-3xl mx-auto mb-8 flex items-center justify-center shadow-xl rotate-3">
              <ShieldAlert className="w-10 h-10 text-white" />
           </div>
-          <h3 className="text-3xl font-black mb-10 italic tracking-tight">بوابة المشرف السرية</h3>
+          <h3 className="text-3xl font-black mb-10 italic tracking-tight text-center">بوابة المشرف السرية</h3>
           <form onSubmit={async (e) => {
             e.preventDefault();
             const target = e.target as any;
             const email = target[0].value;
             const pass = target[1].value;
             
-            // تحقق من بيانات المشرف (يفضل أن تكون في Firestore لأمان أكثر ولكن سأبقيها هنا كما طلبت)
-            if (email === "admin@kora.dz" && pass === "admin2024") {
+            if (email === ADMIN_CREDS.email && pass === ADMIN_CREDS.pass) {
               setIsAdmin(true); 
               localStorage.setItem(ADMIN_KEY, 'true');
               setCurrentView('admin'); 
@@ -760,7 +766,7 @@ export default function App() {
         <div className="max-w-md mx-auto py-12 px-6 pb-24 md:pb-12">
           <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-2xl border border-slate-100 text-center">
             <div className="bg-blue-600 w-16 h-16 rounded-2xl mx-auto mb-8 flex items-center justify-center shadow-xl rotate-3"><Trophy className="w-8 h-8 text-white" /></div>
-            <h3 className="text-2xl font-black mb-10 text-slate-900 italic tracking-tight">دخول النادي</h3>
+            <h3 className="text-2xl md:text-3xl font-black mb-10 text-slate-900 italic tracking-tight">دخول النادي</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
               const target = e.target as any;
@@ -902,8 +908,8 @@ export default function App() {
       </div>
       <footer className="bg-slate-900 text-slate-500 py-16 text-center relative overflow-hidden pb-32">
         <div className="max-w-4xl mx-auto px-6 relative z-10">
-          <button onClick={handleSecretClick} className="focus:outline-none hover:scale-110 transition-transform active:rotate-12">
-            <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-6 opacity-20" />
+          <button onClick={handleSecretClick} className="focus:outline-none transition-opacity opacity-20 hover:opacity-100 active:rotate-12">
+            <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-6" />
           </button>
           <h3 className="text-white font-black text-lg mb-4 italic text-center">بوابة البطولة الرقمية</h3>
           <p className="text-[10px] opacity-60 font-bold uppercase mb-12 text-center px-4">مدعوم بتقنية Google Firebase &bull; 2024</p>
