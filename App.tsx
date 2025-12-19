@@ -7,7 +7,7 @@ import {
   LayoutGrid, Image as ImageIcon, Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, 
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
-  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp
+  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -64,9 +64,13 @@ export default function App() {
       if (savedAdmin === 'true') setIsAdmin(true);
 
       const savedTeamId = localStorage.getItem(SESSION_KEY);
-      if (savedTeamId && !user) {
+      let currentUserData = user;
+      if (savedTeamId) {
         const teamData = await FirebaseService.getTeamById(savedTeamId);
-        if (teamData) setUser(teamData);
+        if (teamData) {
+          setUser(teamData);
+          currentUserData = teamData;
+        }
       }
 
       const [channels, teams, hubPosts, adsData, matchesData, statsData] = await Promise.all([
@@ -129,6 +133,294 @@ export default function App() {
       window.location.hash = 'admin-access';
     }
   };
+
+  // Helper for image upload to base64
+  const handleImageUpload = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const ProfileView = () => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editData, setEditData] = useState<Partial<TeamRegistration>>({});
+    const [isSaving, setIsSaving] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    if (!user) return null;
+
+    const startEditing = () => {
+      setEditData({
+        team_name: user.team_name,
+        coach_name: user.coach_name,
+        bio: user.bio,
+        region: user.region,
+        municipality: user.municipality,
+        players_count: user.players_count,
+        logo_url: user.logo_url
+      });
+      setIsEditing(true);
+    };
+
+    const saveChanges = async () => {
+      if (!user.id) return;
+      setIsSaving(true);
+      const res = await FirebaseService.updateTeamProfile(user.id, editData);
+      if (res.success) {
+        setUser({ ...user, ...editData });
+        setIsEditing(false);
+        fetchData(true);
+      } else {
+        alert("فشل تحديث البيانات.");
+      }
+      setIsSaving(false);
+    };
+
+    const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+        const base64 = await handleImageUpload(e.target.files[0]);
+        setEditData({ ...editData, logo_url: base64 });
+      }
+    };
+
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500">
+         <AdDisplay html={ads.profile_top} />
+         
+         {/* Profile Header */}
+         <div className="bg-slate-900 h-64 md:h-96 rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
+           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+           <div className="absolute -bottom-12 right-12 flex flex-col md:flex-row items-center gap-8 text-white w-full">
+             <div className="relative group">
+                <img src={editData.logo_url || user.logo_url} className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] border-8 border-white bg-white shadow-2xl object-cover" />
+                {isEditing && (
+                  <button onClick={() => fileInputRef.current?.click()} className="absolute inset-0 bg-black/50 rounded-[3rem] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-10 h-10 text-white" />
+                  </button>
+                )}
+                <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*" />
+             </div>
+             <div className="mb-14 text-center md:text-right flex-1">
+               {isEditing ? (
+                 <input 
+                   value={editData.team_name} 
+                   onChange={e => setEditData({...editData, team_name: e.target.value})}
+                   className="text-4xl md:text-6xl font-black italic tracking-tighter bg-white/10 border-b-2 border-white/30 outline-none w-full max-w-lg"
+                 />
+               ) : (
+                 <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">نادي {user.team_name}</h2>
+               )}
+               <div className="flex items-center gap-2 justify-center md:justify-end mt-2">
+                 <MapPin className="w-5 h-5 text-blue-400" />
+                 {isEditing ? (
+                    <input 
+                      value={editData.region} 
+                      onChange={e => setEditData({...editData, region: e.target.value})}
+                      className="bg-white/10 text-blue-200 font-bold border-b border-white/20 outline-none"
+                    />
+                 ) : (
+                    <p className="text-blue-200 font-bold">{user.municipality || user.region}</p>
+                 )}
+               </div>
+             </div>
+             <div className="mb-14 px-12 hidden md:block">
+               {isEditing ? (
+                  <div className="flex gap-4">
+                    <button onClick={saveChanges} disabled={isSaving} className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-600 shadow-lg">
+                      {isSaving ? <Loader2 className="animate-spin" /> : <SaveAll className="w-5 h-5" />} حفظ التغييرات
+                    </button>
+                    <button onClick={() => setIsEditing(false)} className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black hover:bg-white/20">إلغاء</button>
+                  </div>
+               ) : (
+                  <button onClick={startEditing} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 shadow-lg">
+                    <Edit3 className="w-5 h-5" /> تعديل البروفايل
+                  </button>
+               )}
+             </div>
+           </div>
+         </div>
+
+         {/* Stats and Bio Grid */}
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 px-4">
+           <div className="lg:col-span-2 space-y-8">
+             <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <h3 className="text-2xl font-black mb-6 flex items-center gap-3 justify-end italic text-slate-900">نبذة عن النادي <Info className="text-blue-600" /></h3>
+                {isEditing ? (
+                  <textarea 
+                    value={editData.bio} 
+                    onChange={e => setEditData({...editData, bio: e.target.value})}
+                    placeholder="اكتب شيئاً عن تاريخ النادي وطموحاته..."
+                    className="w-full h-40 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-slate-700"
+                  />
+                ) : (
+                  <p className="text-slate-600 text-lg leading-relaxed font-bold">{user.bio || "لا توجد نبذة تعريفية حالياً."}</p>
+                )}
+             </div>
+             
+             {/* Team Posts */}
+             <div className="space-y-6">
+                <h3 className="text-2xl font-black flex items-center gap-3 justify-end italic px-4 text-slate-800">آخر المنشورات <Hash className="text-slate-400" /></h3>
+                {posts.filter(p => p.teamId === user.id).length === 0 ? (
+                  <div className="bg-slate-50 p-12 rounded-[2rem] text-center border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-black">لم يقم النادي بنشر أي محتوى بعد.</p>
+                  </div>
+                ) : (
+                  posts.filter(p => p.teamId === user.id).map(post => (
+                    <div key={post.id} className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 text-right">
+                       <p className="text-slate-700 text-lg leading-relaxed">{post.content}</p>
+                       <div className="text-[10px] text-slate-400 font-black mt-4 border-t pt-4">نُشر في {new Date(post.created_at.toDate()).toLocaleDateString('ar-DZ')}</div>
+                    </div>
+                  ))
+                )}
+             </div>
+           </div>
+
+           <div className="space-y-6">
+              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-32 h-32 bg-white/10 blur-3xl -ml-16 -mt-16"></div>
+                 <h4 className="text-lg font-black mb-6 flex items-center gap-2 justify-end relative z-10">إحصائيات الموسم <TrendingUp className="w-5 h-5" /></h4>
+                 <div className="grid grid-cols-2 gap-4 relative z-10">
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
+                       <p className="text-3xl font-black">{user.wins || 0}</p>
+                       <p className="text-[10px] font-black uppercase opacity-70">فوز</p>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
+                       <p className="text-3xl font-black">{user.losses || 0}</p>
+                       <p className="text-[10px] font-black uppercase opacity-70">خسارة</p>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10 col-span-2">
+                       {isEditing ? (
+                         <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black opacity-70">عدد اللاعبين:</span>
+                            <input 
+                              type="number"
+                              value={editData.players_count} 
+                              onChange={e => setEditData({...editData, players_count: Number(e.target.value)})}
+                              className="bg-white/20 w-16 p-1 rounded font-black text-center"
+                            />
+                         </div>
+                       ) : (
+                         <>
+                           <p className="text-3xl font-black">{user.players_count || 0}</p>
+                           <p className="text-[10px] font-black uppercase opacity-70">لاعب في القائمة</p>
+                         </>
+                       )}
+                    </div>
+                 </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 text-center">
+                 <h4 className="font-black text-slate-400 text-xs mb-4 uppercase tracking-widest">المسؤول التقني</h4>
+                 {isEditing ? (
+                   <input 
+                     value={editData.coach_name} 
+                     onChange={e => setEditData({...editData, coach_name: e.target.value})}
+                     className="text-xl font-black italic text-slate-900 bg-slate-50 border-b border-blue-500 w-full text-center outline-none"
+                   />
+                 ) : (
+                   <p className="text-xl font-black italic text-slate-900">{user.coach_name}</p>
+                 )}
+              </div>
+              <div className="md:hidden">
+                 {isEditing ? (
+                    <button onClick={saveChanges} disabled={isSaving} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black shadow-lg">حفظ التغييرات</button>
+                 ) : (
+                    <button onClick={startEditing} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-lg">تعديل الملف الشخصي</button>
+                 )}
+              </div>
+           </div>
+         </div>
+      </div>
+    );
+  };
+
+  const HubView = () => {
+    const [newPostContent, setNewPostContent] = useState("");
+    const [isPosting, setIsPosting] = useState(false);
+
+    const handleCreatePost = async () => {
+      if (!user || !newPostContent.trim()) return;
+      setIsPosting(true);
+      try {
+        await FirebaseService.createPost({
+          teamId: user.id!,
+          teamName: user.team_name,
+          teamLogo: user.logo_url!,
+          content: newPostContent,
+          imageUrl: ""
+        });
+        setNewPostContent("");
+        fetchData(true);
+      } catch (e) {
+        alert("فشل نشر المنشور.");
+      } finally {
+        setIsPosting(false);
+      }
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4 pb-24 text-right animate-in fade-in duration-500">
+         <AdDisplay html={ads.hub_top} />
+         <div className="text-center mb-16">
+            <h2 className="text-5xl font-black italic mb-4 text-slate-900">ملتقى الفرق</h2>
+            <p className="text-slate-400 font-bold">المساحة الرسمية لتفاعل الأندية والمنشورات الحية</p>
+         </div>
+
+         {/* Create Post Input */}
+         {user && (
+           <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 mb-12 animate-in slide-in-from-top duration-500">
+             <div className="flex items-center gap-4 mb-6 justify-end">
+                <span className="font-black text-slate-900">{user.team_name}</span>
+                <img src={user.logo_url} className="w-10 h-10 rounded-xl object-cover" />
+             </div>
+             <textarea 
+               value={newPostContent}
+               onChange={e => setNewPostContent(e.target.value)}
+               placeholder="ماذا يدور في كواليس فريقك اليوم؟" 
+               className="w-full h-32 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-right"
+             />
+             <div className="flex justify-start mt-4">
+                <button 
+                  onClick={handleCreatePost}
+                  disabled={isPosting || !newPostContent.trim()}
+                  className="bg-blue-600 text-white px-10 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                >
+                  {isPosting ? <Loader2 className="animate-spin" /> : <Send className="w-5 h-5" />} نشر الآن
+                </button>
+             </div>
+           </div>
+         )}
+         
+         <div className="space-y-10">
+           {posts.length === 0 ? (
+             <div className="h-64 flex flex-col items-center justify-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+               <MessageSquare className="w-12 h-12 text-slate-300 mb-4" />
+               <p className="text-slate-400 font-black italic">لا توجد منشورات حالياً.. كن أول من ينشر!</p>
+               <button onClick={() => fetchData(true)} className="mt-4 text-blue-500 font-bold flex items-center gap-2"><RefreshCw className="w-4 h-4" /> تحديث الصفحة</button>
+             </div>
+           ) : (
+             posts.map(post => (
+               <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-10 text-right animate-in slide-in-from-bottom duration-500 hover:shadow-2xl transition-all">
+                  <div className="flex items-center gap-5 mb-8 justify-end">
+                    <div className="text-right">
+                       <h4 className="font-black text-xl text-slate-900">{post.teamName}</h4>
+                       <p className="text-[10px] text-slate-400 font-black">
+                         {post.created_at ? `نشر في ${new Date(post.created_at.toDate()).toLocaleDateString('ar-DZ')}` : 'نشط الآن'}
+                       </p>
+                    </div>
+                    <img src={post.teamLogo} className="w-16 h-16 rounded-3xl object-cover shadow-lg border-2 border-slate-50" />
+                  </div>
+                  <p className="text-slate-700 text-xl mb-6 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
+                  {post.imageUrl && <img src={post.imageUrl} className="w-full rounded-[2rem] shadow-sm object-cover max-h-[600px] border border-slate-50" />}
+               </div>
+             ))
+           )}
+         </div>
+         <AdDisplay html={ads.hub_bottom} />
+    </div>
+  );
 
   const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState<'stats' | 'teams' | 'matches' | 'posts' | 'channels' | 'ads'>('stats');
@@ -231,7 +523,7 @@ export default function App() {
     return (
       <div className="max-w-7xl mx-auto py-10 px-6 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 text-right">
-          <div><h2 className="text-3xl font-black flex items-center gap-3 justify-end">الإدارة المركزية <Lock className="text-blue-600" /></h2><p className="text-slate-400 font-bold">تحكم كامل في إحصائيات، مباريات وإعلانات البطولة.</p></div>
+          <div><h2 className="text-3xl font-black flex items-center gap-3 justify-end text-slate-900">الإدارة المركزية <Lock className="text-blue-600" /></h2><p className="text-slate-400 font-bold">تحكم كامل في إحصائيات، مباريات وإعلانات البطولة.</p></div>
           <div className="flex gap-4">
              <div className="bg-blue-600 text-white px-8 py-3 rounded-2xl flex items-center gap-3 shadow-lg"><BarChart3 className="w-5 h-5" /><span className="font-black text-xl">{visitorCount}</span><p className="text-[10px] opacity-70">زائر</p></div>
           </div>
@@ -264,11 +556,10 @@ export default function App() {
           </div>
         )}
 
-        {/* بقية تبويبات الأدمن تعمل بشكل صحيح */}
         {activeTab === 'matches' && (
           <div className="space-y-8 text-right">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-50">
-               <h3 className="text-xl font-black mb-6 flex items-center gap-2 justify-end">جدولة مباراة <Calendar className="text-blue-600" /></h3>
+               <h3 className="text-xl font-black mb-6 flex items-center gap-2 justify-end text-slate-900">جدولة مباراة <Calendar className="text-blue-600" /></h3>
                <form onSubmit={async (e) => {
                  e.preventDefault(); setIsSaving(true);
                  const t = e.target as any;
@@ -311,7 +602,7 @@ export default function App() {
           <div className="space-y-10 text-right">
             <div className="bg-blue-600 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
                <div className="relative z-10">
-                  <div className="flex items-center gap-3 justify-end mb-6"><h3 className="text-2xl font-black italic">أداة النشر السريع</h3><Zap className="w-8 h-8 text-amber-400 fill-current" /></div>
+                  <div className="flex items-center gap-3 justify-end mb-6 text-white"><h3 className="text-2xl font-black italic">أداة النشر السريع</h3><Zap className="w-8 h-8 text-amber-400 fill-current" /></div>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                      <div className="space-y-4">
                         <textarea value={bulkAdCode} onChange={(e) => setBulkAdCode(e.target.value)} placeholder="ألصق كود الإعلان هنا..." className="w-full h-48 p-5 bg-white/10 border-2 border-white/20 rounded-[1.5rem] outline-none font-mono text-xs placeholder:text-blue-200/50" />
@@ -322,7 +613,7 @@ export default function App() {
                            {adSlots.map(slot => (
                              <label key={slot.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${selectedSlots.includes(slot.id) ? 'bg-white/20 border-white/40' : 'bg-transparent border-white/10'}`}>
                                <div className={`w-4 h-4 rounded-md border flex items-center justify-center ${selectedSlots.includes(slot.id) ? 'bg-amber-400 border-amber-400' : 'border-white/30'}`}>{selectedSlots.includes(slot.id) && <Check className="w-3 h-3 text-blue-900" />}</div>
-                               <span className="text-[10px] font-bold">{slot.label}</span>
+                               <span className="text-[10px] font-bold text-white">{slot.label}</span>
                                <input type="checkbox" className="hidden" checked={selectedSlots.includes(slot.id)} onChange={() => toggleSlotSelection(slot.id)} />
                              </label>
                            ))}
@@ -348,116 +639,12 @@ export default function App() {
     );
   };
 
-  const ProfileView = () => {
-    if (!user) return null;
-    return (
-      <div className="max-w-7xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500">
-         <AdDisplay html={ads.profile_top} />
-         <div className="bg-slate-900 h-64 md:h-96 rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
-           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
-           <div className="absolute -bottom-12 right-12 flex flex-col md:flex-row items-center gap-8 text-white">
-             <img src={user.logo_url} className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] border-8 border-white bg-white shadow-2xl object-cover" />
-             <div className="mb-14 text-center md:text-right">
-               <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">نادي {user.team_name}</h2>
-               <p className="text-blue-200 font-bold flex items-center gap-2 justify-center md:justify-end mt-2"><MapPin className="w-5 h-5" /> {user.municipality || user.region}</p>
-             </div>
-           </div>
-         </div>
-
-         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 px-4">
-           {/* معلومات الفريق */}
-           <div className="lg:col-span-2 space-y-8">
-             <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
-                <h3 className="text-2xl font-black mb-6 flex items-center gap-3 justify-end italic">عن النادي <Info className="text-blue-600" /></h3>
-                <p className="text-slate-600 text-lg leading-relaxed font-bold">{user.bio || "لا يوجد نبذة تعريفية حالياً."}</p>
-             </div>
-             
-             {/* المنشورات الخاصة بالفريق */}
-             <div className="space-y-6">
-                <h3 className="text-2xl font-black flex items-center gap-3 justify-end italic px-4">آخر المنشورات <Hash className="text-slate-400" /></h3>
-                {posts.filter(p => p.teamId === user.id).length === 0 ? (
-                  <div className="bg-slate-50 p-12 rounded-[2rem] text-center border-2 border-dashed border-slate-200">
-                    <p className="text-slate-400 font-black">لم يقم النادي بنشر أي محتوى بعد.</p>
-                  </div>
-                ) : (
-                  posts.filter(p => p.teamId === user.id).map(post => (
-                    <div key={post.id} className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 text-right">
-                       <p className="text-slate-700 text-lg leading-relaxed">{post.content}</p>
-                    </div>
-                  ))
-                )}
-             </div>
-           </div>
-
-           {/* الإحصائيات الجانبية */}
-           <div className="space-y-6">
-              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl">
-                 <h4 className="text-lg font-black mb-6 flex items-center gap-2 justify-end">إحصائيات الموسم <TrendingUp className="w-5 h-5" /></h4>
-                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
-                       <p className="text-3xl font-black">{user.wins || 0}</p>
-                       <p className="text-[10px] font-black uppercase opacity-70">فوز</p>
-                    </div>
-                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
-                       <p className="text-3xl font-black">{user.losses || 0}</p>
-                       <p className="text-[10px] font-black uppercase opacity-70">خسارة</p>
-                    </div>
-                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10 col-span-2">
-                       <p className="text-3xl font-black">{user.players_count || 0}</p>
-                       <p className="text-[10px] font-black uppercase opacity-70">لاعب في القائمة</p>
-                    </div>
-                 </div>
-              </div>
-              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 text-center">
-                 <h4 className="font-black text-slate-400 text-xs mb-4 uppercase tracking-widest">المسؤول التقني</h4>
-                 <p className="text-xl font-black italic text-slate-900">{user.coach_name}</p>
-              </div>
-           </div>
-         </div>
-      </div>
-    );
-  };
-
-  const HubView = () => (
-    <div className="max-w-4xl mx-auto py-12 px-4 pb-24 text-right animate-in fade-in duration-500">
-       <AdDisplay html={ads.hub_top} />
-       <div className="text-center mb-16">
-          <h2 className="text-5xl font-black italic mb-4">ملتقى الفرق</h2>
-          <p className="text-slate-400 font-bold">المساحة الرسمية لتفاعل الأندية المشاركة</p>
-       </div>
-       
-       <div className="space-y-10">
-         {posts.length === 0 ? (
-           <div className="h-64 flex flex-col items-center justify-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-             <MessageSquare className="w-12 h-12 text-slate-300 mb-4" />
-             <p className="text-slate-400 font-black italic">لا توجد منشورات حالياً.. كن أول من ينشر!</p>
-           </div>
-         ) : (
-           posts.map(post => (
-             <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-10 text-right animate-in slide-in-from-bottom duration-500 hover:shadow-2xl transition-all">
-                <div className="flex items-center gap-5 mb-8 justify-end">
-                  <div className="text-right">
-                     <h4 className="font-black text-xl text-slate-900">{post.teamName}</h4>
-                     <p className="text-[10px] text-slate-400 font-black">نشط الآن في الملتقى</p>
-                  </div>
-                  <img src={post.teamLogo} className="w-16 h-16 rounded-3xl object-cover shadow-lg border-2 border-slate-50" />
-                </div>
-                <p className="text-slate-700 text-xl mb-6 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
-                {post.imageUrl && <img src={post.imageUrl} className="w-full rounded-[2rem] shadow-sm object-cover max-h-[600px] border border-slate-50" />}
-             </div>
-           ))
-         )}
-       </div>
-       <AdDisplay html={ads.hub_bottom} />
-    </div>
-  );
-
   const MatchCenterView = () => (
     <div className="max-w-7xl mx-auto py-12 px-6 pb-24 text-right animate-in fade-in duration-500">
       <AdDisplay html={ads.matches_top} />
       <div className="flex items-center justify-between mb-12">
          <div className="bg-slate-900 px-6 py-3 rounded-2xl text-white font-black text-xs uppercase flex items-center gap-3"><Activity className="w-4 h-4 text-emerald-400" /> مركز المباريات المباشر</div>
-         <h2 className="text-4xl md:text-5xl font-black italic">جدول البطولة</h2>
+         <h2 className="text-4xl md:text-5xl font-black italic text-slate-900">جدول البطولة</h2>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {matches.length === 0 ? (
@@ -517,7 +704,7 @@ export default function App() {
       case 'live': return (
         <div className="max-w-7xl mx-auto py-12 px-6 pb-24 text-right">
           <AdDisplay html={ads.live_top} />
-          <h2 className="text-4xl font-black flex items-center gap-4 justify-end italic mb-12">قنوات البث المباشر <Radio className="text-red-600 animate-pulse" /></h2>
+          <h2 className="text-4xl font-black flex items-center gap-4 justify-end italic mb-12 text-slate-900">قنوات البث المباشر <Radio className="text-red-600 animate-pulse" /></h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {liveChannels.map(ch => (
               <div key={ch.id} className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100">
@@ -599,7 +786,7 @@ export default function App() {
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-4 text-center animate-in zoom-in duration-500">
-        <h2 className="text-4xl md:text-5xl font-black italic mb-12">قرعة البطولة الآلية</h2>
+        <h2 className="text-4xl md:text-5xl font-black italic mb-12 text-slate-900">قرعة البطولة الآلية</h2>
         <div className="bg-white rounded-[3rem] p-16 shadow-2xl border border-slate-100 flex flex-col items-center justify-center min-h-[500px]">
           {!opponent && !isDrawing ? (
             <button onClick={startDraw} className="px-14 py-6 bg-blue-600 text-white rounded-[2rem] font-black text-2xl shadow-2xl active:scale-95 transition-all">ابدأ القرعة الآن</button>
@@ -619,7 +806,7 @@ export default function App() {
     <div className="max-w-md mx-auto py-24 px-6 text-center">
        <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100">
           <div className="bg-blue-600 w-20 h-20 rounded-3xl mx-auto mb-8 flex items-center justify-center shadow-xl"><Trophy className="w-10 h-10 text-white" /></div>
-          <h3 className="text-3xl font-black mb-10 italic">دخول النادي</h3>
+          <h3 className="text-3xl font-black mb-10 italic text-slate-900">دخول النادي</h3>
           <form onSubmit={async (e) => { e.preventDefault(); const t = e.target as any; const { data, error } = await FirebaseService.loginTeam(t[0].value, t[1].value); if (error) alert(error); else { setUser(data); localStorage.setItem(SESSION_KEY, data.id!); setCurrentView('profile'); fetchData(true); } }} className="space-y-5">
             <input type="email" placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-right" />
             <input type="password" placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-right" />
