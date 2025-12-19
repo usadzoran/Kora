@@ -1,12 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from './services/firebase';
-import { TeamRegistration, LiveChannel, Post } from './types';
+import { TeamRegistration, LiveChannel, Post, Comment } from './types';
 import { 
-  Trophy, Shield, Loader2, Radio, ExternalLink, AlertCircle, Terminal, 
-  RefreshCw, LogOut, Save, Copy, Check, User, LayoutGrid, Image as ImageIcon, 
-  Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, MessageSquare,
-  ChevronDown, Settings, CreditCard, Bell, Upload, X
+  Trophy, Shield, Loader2, Radio, ExternalLink, RefreshCw, LogOut, Save, Copy, Check, User, 
+  LayoutGrid, Image as ImageIcon, Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, 
+  MessageSquare, ChevronDown, Settings, Upload, X, Share2
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register';
@@ -23,16 +21,16 @@ service cloud.firestore {
 }`;
 
   const handleCopy = () => {
-    navigator.clipboard.setText(rulesCode);
+    navigator.clipboard.writeText(rulesCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className="max-w-4xl mx-auto my-12 p-8 bg-white border-t-8 border-red-500 rounded-[3rem] shadow-2xl text-right relative overflow-hidden">
-      <div className="flex items-center gap-4 text-red-600 mb-6 font-black text-3xl">
-        <Shield className="w-12 h-12" />
+      <div className="flex items-center justify-end gap-4 text-red-600 mb-6 font-black text-3xl">
         <h2>تنبيه: تحديث قواعد Firebase</h2>
+        <Shield className="w-12 h-12" />
       </div>
       <p className="mb-6 font-bold text-slate-700">يجب نسخ الكود التالي بالكامل ولصقه في تبويب <span className="text-blue-600">Rules</span> في Firebase Console لتعمل قاعدة البيانات:</p>
       <div className="bg-slate-900 text-emerald-400 p-8 rounded-[2rem] font-mono text-sm overflow-x-auto ltr shadow-inner border-4 border-slate-800 mb-8 relative">
@@ -89,7 +87,6 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Utility to convert File to Base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -97,6 +94,120 @@ export default function App() {
       reader.onload = () => resolve(reader.result as string);
       reader.onerror = error => reject(error);
     });
+  };
+
+  const PostCard: React.FC<{ post: Post; currentUser: TeamRegistration | null; onRefresh: () => void }> = ({ post, currentUser, onRefresh }) => {
+    const [showComments, setShowComments] = useState(false);
+    const [commentText, setCommentText] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+    const isLiked = currentUser ? post.likes?.includes(currentUser.id!) : false;
+
+    const handleLike = async () => {
+      if (!currentUser || !post.id) return;
+      await FirebaseService.toggleLike(post.id, currentUser.id!, isLiked || false);
+      onRefresh();
+    };
+
+    const handleComment = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!currentUser || !commentText.trim() || !post.id) return;
+      setIsSubmittingComment(true);
+      const newComment: Comment = {
+        id: Date.now().toString(),
+        teamId: currentUser.id!,
+        teamName: currentUser.team_name,
+        teamLogo: currentUser.logo_url!,
+        text: commentText,
+        created_at: new Date()
+      };
+      await FirebaseService.addComment(post.id, newComment);
+      setCommentText('');
+      setIsSubmittingComment(false);
+      onRefresh();
+    };
+
+    return (
+      <div className="bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden hover:shadow-2xl transition-all duration-500 group animate-in slide-in-from-bottom-4">
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4 text-right">
+              <div className="order-2">
+                <h4 className="font-black text-xl text-slate-900 group-hover:text-blue-600 transition-colors">{post.teamName}</h4>
+                <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
+                  {new Date(post.created_at?.toDate ? post.created_at.toDate() : post.created_at).toLocaleString('ar-DZ')}
+                </p>
+              </div>
+              <img src={post.teamLogo} className="w-14 h-14 rounded-2xl shadow-md border border-slate-100 object-cover order-1" />
+            </div>
+          </div>
+          <p className="text-slate-700 text-lg leading-relaxed mb-8 font-semibold pr-4 border-r-4 border-blue-500/10 text-right whitespace-pre-wrap">{post.content}</p>
+          {post.imageUrl && (
+            <div className="rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-inner group-hover:scale-[1.01] transition-transform duration-500 mb-8">
+              <img src={post.imageUrl} className="w-full max-h-[600px] object-cover" />
+            </div>
+          )}
+          <div className="pt-6 border-t border-slate-50 flex items-center justify-between">
+            <div className="flex items-center gap-8">
+              <button 
+                onClick={handleLike}
+                disabled={!currentUser}
+                className={`flex items-center gap-2 font-black transition-colors ${isLiked ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}
+              >
+                <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+                <span>{post.likes?.length || 0}</span>
+              </button>
+              <button 
+                onClick={() => setShowComments(!showComments)}
+                className="flex items-center gap-2 text-slate-400 font-black hover:text-blue-600 transition-colors"
+              >
+                <MessageSquare className="w-6 h-6" />
+                <span>{post.comments?.length || 0}</span>
+              </button>
+            </div>
+            <button className="text-slate-300 hover:text-blue-600 transition-colors"><Share2 className="w-5 h-5" /></button>
+          </div>
+
+          {showComments && (
+            <div className="mt-8 pt-8 border-t border-slate-50 space-y-6 animate-in fade-in slide-in-from-top-2">
+              {post.comments?.map((comment) => (
+                <div key={comment.id} className="flex gap-3 text-right">
+                  <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">
+                        {new Date(comment.created_at?.toDate ? comment.created_at.toDate() : comment.created_at).toLocaleTimeString('ar-DZ')}
+                      </span>
+                      <p className="font-black text-sm text-slate-900">{comment.teamName}</p>
+                    </div>
+                    <p className="text-sm text-slate-600 font-medium">{comment.text}</p>
+                  </div>
+                  <img src={comment.teamLogo} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                </div>
+              ))}
+              
+              {currentUser ? (
+                <form onSubmit={handleComment} className="flex gap-3">
+                  <button 
+                    type="submit" 
+                    disabled={isSubmittingComment || !commentText.trim()}
+                    className="bg-blue-600 text-white p-3 px-6 rounded-2xl font-black shadow-lg shadow-blue-500/20 disabled:opacity-50 transition-all hover:bg-blue-700 active:scale-95"
+                  >
+                    {isSubmittingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                  </button>
+                  <input 
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="اكتب تعليقاً..."
+                    className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 outline-none focus:ring-4 ring-blue-500/5 text-sm font-bold text-right"
+                  />
+                </form>
+              ) : (
+                <p className="text-center text-slate-400 text-xs font-bold py-4">يجب تسجيل الدخول للتعليق</p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   const ProfileView = () => {
@@ -142,17 +253,12 @@ export default function App() {
       if (files && files.length > 0 && user.id) {
         setIsSaving(true);
         try {
-          // Fix: Convert FileList to Array and cast to File[] to avoid unknown type error on iteration
           const fileArray = Array.from(files) as File[];
           for (const file of fileArray) {
             const base64 = await fileToBase64(file);
             await FirebaseService.addToGallery(user.id, base64);
           }
-          // We need to fetch again to get all new images or manually update
           fetchData();
-          // Update local state for immediate feedback
-          const newImages = await Promise.all(fileArray.map(f => fileToBase64(f)));
-          setUser({ ...user, gallery: [...(user.gallery || []), ...newImages] });
         } catch (err) {
           console.error("Gallery upload error:", err);
         } finally {
@@ -164,7 +270,6 @@ export default function App() {
     return (
       <div className="max-w-6xl mx-auto py-12 px-6 animate-in slide-in-from-bottom duration-500">
         <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-slate-100">
-          {/* Header Banner */}
           <div className="h-80 bg-gradient-to-br from-blue-700 via-indigo-800 to-slate-900 relative">
             <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
@@ -176,30 +281,18 @@ export default function App() {
                   src={profileData.logo_url} 
                   className="w-48 h-48 rounded-[3rem] border-[10px] border-white shadow-2xl bg-white object-cover transition-all group-hover:scale-[1.02] relative" 
                 />
-                <input 
-                  type="file" 
-                  ref={logoInputRef} 
-                  className="hidden" 
-                  accept="image/*" 
-                  onChange={handleLogoUpload} 
-                />
+                <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handleLogoUpload} />
                 <button 
                   onClick={() => logoInputRef.current?.click()}
                   className="absolute bottom-4 left-4 bg-blue-600 p-3 rounded-2xl text-white shadow-lg cursor-pointer hover:scale-110 transition-all z-20"
-                  title="تغيير شعار الفريق"
                 >
                   <Camera className="w-6 h-6" />
                 </button>
               </div>
-              <div className="mb-8">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-5xl font-black text-white drop-shadow-2xl">{user.team_name}</h2>
-                  <div className="bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-black uppercase tracking-widest border border-white/30">
-                    رتبة النخبة
-                  </div>
-                </div>
-                <p className="text-blue-100 font-bold flex items-center gap-2 mt-2 text-lg opacity-90">
-                  <MapPin className="w-5 h-5 text-blue-300" /> {user.municipality || user.region}
+              <div className="mb-8 text-right">
+                <h2 className="text-5xl font-black text-white drop-shadow-2xl">{user.team_name}</h2>
+                <p className="text-blue-100 font-bold flex items-center gap-2 mt-2 text-lg opacity-90 justify-end">
+                  {user.municipality || user.region} <MapPin className="w-5 h-5 text-blue-300" />
                 </p>
               </div>
             </div>
@@ -207,7 +300,7 @@ export default function App() {
             <div className="absolute top-8 left-12 flex gap-3">
               <button 
                 onClick={() => setEditMode(!editMode)} 
-                className={`px-8 py-4 ${editMode ? 'bg-red-500' : 'bg-white/10'} backdrop-blur-xl text-white rounded-3xl font-black flex items-center gap-3 border border-white/20 hover:bg-white/20 transition-all shadow-xl`}
+                className={`px-8 py-4 ${editMode ? 'bg-red-500 text-white' : 'bg-white/10 text-white'} backdrop-blur-xl rounded-3xl font-black flex items-center gap-3 border border-white/20 hover:bg-white/20 transition-all shadow-xl`}
               >
                 {editMode ? <X className="w-5 h-5" /> : <Edit3 className="w-5 h-5" />}
                 {editMode ? 'إلغاء' : 'تعديل البيانات'}
@@ -216,126 +309,59 @@ export default function App() {
           </div>
           
           <div className="pt-32 px-12 pb-16 grid grid-cols-1 lg:grid-cols-3 gap-16">
-            {/* Left Column: Stats & Info */}
             <div className="lg:col-span-1 space-y-10">
-              <div className="bg-slate-900 text-white p-10 rounded-[3.5rem] shadow-2xl relative overflow-hidden group">
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-blue-600/30 rounded-full blur-[80px] group-hover:bg-blue-600/50 transition-colors"></div>
-                <h3 className="font-black text-2xl mb-10 flex items-center gap-3 relative"><Trophy className="text-yellow-400 w-8 h-8" /> السجل الذهبي</h3>
-                <div className="grid grid-cols-2 gap-8 relative">
-                  <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-4">
-                      <span className="text-4xl font-black text-emerald-400">{user.wins || 0}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em]">فوز</p>
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <div className="w-20 h-20 rounded-3xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
-                      <span className="text-4xl font-black text-red-400">{user.losses || 0}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em]">خسارة</p>
-                  </div>
+              <div className="bg-slate-900 text-white p-10 rounded-[3.5rem] shadow-2xl text-center">
+                <h3 className="font-black text-2xl mb-10 flex items-center gap-3 justify-center">السجل الذهبي <Trophy className="text-yellow-400 w-8 h-8" /></h3>
+                <div className="grid grid-cols-2 gap-8">
+                  <div><span className="text-4xl font-black text-emerald-400 block">{user.wins || 0}</span><p className="text-xs text-slate-400 font-black uppercase mt-2">فوز</p></div>
+                  <div><span className="text-4xl font-black text-red-400 block">{user.losses || 0}</span><p className="text-xs text-slate-400 font-black uppercase mt-2">خسارة</p></div>
                 </div>
               </div>
 
-              <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 shadow-sm">
-                <h3 className="font-black text-2xl mb-8 text-slate-800 border-b pb-6">هوية الفريق</h3>
+              <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 shadow-sm text-right">
+                <h3 className="font-black text-2xl mb-8 text-slate-800 border-b pb-6">بيانات النادي</h3>
                 {editMode ? (
-                  <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">الاسم الرسمي</label>
-                      <input value={profileData.team_name} onChange={e => setProfileData({...profileData, team_name: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none focus:ring-4 ring-blue-500/5 font-bold" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">البلدية</label>
-                      <input value={profileData.municipality} onChange={e => setProfileData({...profileData, municipality: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none focus:ring-4 ring-blue-500/5 font-bold" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">عدد اللاعبين</label>
-                      <input type="number" value={profileData.players_count} onChange={e => setProfileData({...profileData, players_count: parseInt(e.target.value)})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none focus:ring-4 ring-blue-500/5 font-bold" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">الوصف</label>
-                      <textarea value={profileData.bio} onChange={e => setProfileData({...profileData, bio: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none focus:ring-4 ring-blue-500/5 h-32 resize-none font-medium" />
-                    </div>
-                    <button onClick={handleUpdate} disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black shadow-xl shadow-blue-500/20 hover:bg-blue-700 flex items-center justify-center gap-3 transform transition-all active:scale-95">
-                      {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />} حفظ البيانات
+                  <div className="space-y-6">
+                    <input value={profileData.team_name} onChange={e => setProfileData({...profileData, team_name: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none font-bold text-right" placeholder="اسم الفريق" />
+                    <input value={profileData.municipality} onChange={e => setProfileData({...profileData, municipality: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none font-bold text-right" placeholder="البلدية" />
+                    <input type="number" value={profileData.players_count} onChange={e => setProfileData({...profileData, players_count: parseInt(e.target.value)})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none font-bold text-right" placeholder="عدد اللاعبين" />
+                    <textarea value={profileData.bio} onChange={e => setProfileData({...profileData, bio: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none h-32 resize-none font-medium text-right" placeholder="نبذة..." />
+                    <button onClick={handleUpdate} disabled={isSaving} className="w-full py-5 bg-blue-600 text-white rounded-[1.5rem] font-black shadow-xl hover:bg-blue-700 flex items-center justify-center gap-3">
+                      {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : <Save className="w-6 h-6" />} حفظ
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-8">
-                    <div className="flex items-center gap-5 p-6 bg-white rounded-3xl border border-slate-100 group">
-                      <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                        <Users className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">التعداد</p>
-                        <p className="text-xl font-black text-slate-800">{user.players_count || 0} لاعب</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-5 p-6 bg-white rounded-3xl border border-slate-100 group">
-                      <div className="w-14 h-14 bg-blue-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 transition-colors">
-                        <MapPin className="w-7 h-7 text-blue-600 group-hover:text-white transition-colors" />
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">الموقع</p>
-                        <p className="text-xl font-black text-slate-800">{user.municipality || user.region}</p>
-                      </div>
-                    </div>
-                    <div className="p-8 bg-white rounded-[2rem] border border-slate-100">
-                      <p className="text-[10px] font-black text-slate-300 uppercase mb-3 italic">الرسالة</p>
-                      <p className="text-slate-600 font-semibold italic">"{user.bio || 'لا يوجد وصف متاح.'}"</p>
-                    </div>
+                    <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100"><span className="text-xl font-black text-slate-800">{user.players_count || 0} لاعب</span><Users className="w-7 h-7 text-blue-600" /></div>
+                    <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100"><span className="text-xl font-black text-slate-800">{user.municipality || user.region}</span><MapPin className="w-7 h-7 text-blue-600" /></div>
+                    <p className="text-slate-600 font-semibold italic text-lg pr-4 border-r-4 border-blue-500/20">"{user.bio || 'لا يوجد وصف متاح حالياً.'}"</p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Right Column: Gallery */}
             <div className="lg:col-span-2 space-y-12">
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                <div>
-                  <div className="flex items-center gap-4 mb-2">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 text-right">
+                <div className="order-2 md:order-1">
+                  <div className="flex items-center gap-4 mb-2 justify-end">
+                    <h3 className="text-4xl font-black text-slate-900 italic tracking-tighter">معرض الفريق</h3>
                     <ImageIcon className="text-blue-600 w-10 h-10" />
-                    <h3 className="text-4xl font-black text-slate-900 tracking-tighter italic">ألبوم الفريق</h3>
                   </div>
-                  <p className="text-slate-400 font-bold mr-14">أجمل لحظاتنا الرياضية الموثقة</p>
+                  <p className="text-slate-400 font-bold">أفضل اللقطات والمباريات التاريخية</p>
                 </div>
-                <div className="flex gap-3">
-                  <input 
-                    type="file" 
-                    ref={galleryInputRef} 
-                    multiple 
-                    className="hidden" 
-                    accept="image/*" 
-                    onChange={handleGalleryUpload} 
-                  />
-                  <button 
-                    onClick={() => galleryInputRef.current?.click()}
-                    disabled={isSaving}
-                    className="bg-slate-900 text-white px-8 py-4 rounded-[1.5rem] hover:bg-blue-600 transition-all flex items-center gap-3 font-black shadow-xl disabled:opacity-50"
-                  >
-                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-                    رفع صور من الجهاز
+                <div className="order-1 md:order-2">
+                  <input type="file" ref={galleryInputRef} multiple className="hidden" accept="image/*" onChange={handleGalleryUpload} />
+                  <button onClick={() => galleryInputRef.current?.click()} disabled={isSaving} className="bg-slate-900 text-white px-8 py-4 rounded-[1.5rem] hover:bg-blue-600 transition-all flex items-center gap-3 font-black shadow-xl disabled:opacity-50">
+                    {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />} رفع صور
                   </button>
                 </div>
               </div>
-              
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {user.gallery && user.gallery.length > 0 ? user.gallery.map((img, i) => (
+                {user.gallery?.map((img, i) => (
                   <div key={i} className="aspect-[4/5] rounded-[2.5rem] overflow-hidden border-[6px] border-white shadow-2xl group relative cursor-pointer hover:-translate-y-2 transition-all duration-500">
                     <img src={img} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent opacity-0 group-hover:opacity-100 transition-all flex flex-col justify-end p-8 text-right">
-                      <p className="text-white font-black text-lg mb-1">لقطة من الميدان</p>
-                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest italic">تم الرفع بنجاح</p>
-                    </div>
                   </div>
-                )) : (
-                  <div className="col-span-full py-32 text-center border-[6px] border-dashed rounded-[4rem] bg-slate-50 border-slate-200 group hover:bg-slate-100 transition-all">
-                    <ImageIcon className="w-16 h-16 text-slate-200 mx-auto mb-6 group-hover:scale-110 transition-transform" />
-                    <p className="text-slate-300 font-black text-2xl italic tracking-tight">لا توجد صور في المعرض</p>
-                    <p className="text-slate-400 text-sm mt-3 font-bold">ابدأ برفع صور الفريق مباشرة من جهازك</p>
-                  </div>
-                )}
+                ))}
               </div>
             </div>
           </div>
@@ -383,55 +409,33 @@ export default function App() {
 
     return (
       <div className="max-w-4xl mx-auto py-12 px-6 animate-in fade-in duration-700">
-        <div className="flex items-center justify-between mb-12">
-          <div>
-            <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4 italic"><Hash className="text-blue-600 w-10 h-10" /> ملتقى الفرق</h2>
-            <p className="text-slate-400 font-bold mr-14">تواصل وشارك مع مجتمع البطولة</p>
+        <div className="flex items-center justify-between mb-12 text-right">
+          <div className="w-full">
+            <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4 italic justify-end">ملتقى الفرق <Hash className="text-blue-600 w-10 h-10" /></h2>
+            <p className="text-slate-400 font-bold mr-0">تواصل وشارك أخبارك مع مجتمع البطولة</p>
           </div>
         </div>
         
         {user ? (
           <div className="bg-white p-8 rounded-[3rem] shadow-2xl border border-slate-100 mb-12 relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-2 h-full bg-blue-600 group-hover:w-3 transition-all"></div>
-            <div className="flex gap-6">
-              <img src={user.logo_url} className="w-16 h-16 rounded-[1.5rem] shadow-lg border-2 border-slate-50 object-cover" />
+            <div className="flex gap-6 text-right">
               <div className="flex-1 space-y-4">
                 <textarea 
                   value={newPostContent} 
                   onChange={e => setNewPostContent(e.target.value)} 
                   placeholder={`ما الجديد في فريق ${user.team_name}؟`} 
-                  className="w-full p-6 bg-slate-50 border-none rounded-[2rem] outline-none focus:ring-4 ring-blue-500/5 resize-none h-40 text-lg font-medium placeholder:text-slate-300" 
+                  className="w-full p-6 bg-slate-50 border-none rounded-[2rem] outline-none focus:ring-4 ring-blue-500/5 resize-none h-40 text-lg font-medium placeholder:text-slate-300 text-right" 
                 />
                 
                 {newPostImage && (
-                  <div className="relative inline-block group">
+                  <div className="relative inline-block group float-right">
                     <img src={newPostImage} className="w-32 h-32 rounded-2xl object-cover border-4 border-white shadow-lg" />
-                    <button 
-                      onClick={() => setNewPostImage('')}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+                    <button onClick={() => setNewPostImage('')} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><X className="w-4 h-4" /></button>
                   </div>
                 )}
 
-                <div className="flex flex-col md:flex-row items-center gap-4">
-                  <div className="flex-1 w-full">
-                    <input 
-                      type="file" 
-                      ref={postImageInputRef} 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={handlePostImageUpload} 
-                    />
-                    <button 
-                      onClick={() => postImageInputRef.current?.click()}
-                      className="w-full pr-6 pl-4 py-4 bg-slate-50 rounded-2xl text-sm font-bold border-none outline-none flex items-center gap-3 text-slate-400 hover:bg-slate-100 transition-all"
-                    >
-                      <ImageIcon className="w-5 h-5" /> 
-                      {newPostImage ? 'تغيير الصورة المرفقة' : 'إرفاق صورة من الجهاز'}
-                    </button>
-                  </div>
+                <div className="flex flex-col md:flex-row items-center gap-4 clear-both pt-4">
                   <button 
                     onClick={handlePost} 
                     disabled={isPosting || !newPostContent} 
@@ -439,44 +443,39 @@ export default function App() {
                   >
                     {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر الآن
                   </button>
+                  <div className="flex-1 w-full">
+                    <input type="file" ref={postImageInputRef} className="hidden" accept="image/*" onChange={handlePostImageUpload} />
+                    <button 
+                      onClick={() => postImageInputRef.current?.click()}
+                      className="w-full pr-6 pl-4 py-4 bg-slate-50 rounded-2xl text-sm font-bold border-none outline-none flex items-center gap-3 text-slate-400 hover:bg-slate-100 transition-all justify-end"
+                    >
+                      {newPostImage ? 'تغيير الصورة المرفقة' : 'إرفاق صورة من الجهاز'} <ImageIcon className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
+              <img src={user.logo_url} className="w-16 h-16 rounded-[1.5rem] shadow-lg border-2 border-slate-50 object-cover" />
             </div>
           </div>
         ) : (
-          <div className="bg-blue-600 text-white p-8 rounded-[2.5rem] shadow-xl text-center mb-12">
-            <h3 className="text-xl font-black mb-2">سجل دخولك لتشارك في الملتقى</h3>
-            <p className="text-blue-100 mb-6">انضم إلى مجتمع الفرق الرياضية وشارك أخبارك وصورك.</p>
-            <button onClick={() => setCurrentView('login')} className="px-10 py-3 bg-white text-blue-600 rounded-xl font-black shadow-lg">تسجيل الدخول</button>
+          <div className="bg-blue-600 text-white p-12 rounded-[3.5rem] shadow-xl text-center mb-12 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
+            <h3 className="text-3xl font-black mb-4">سجل دخولك لتشارك في الملتقى</h3>
+            <p className="text-blue-100 mb-10 text-lg opacity-80">انضم إلى مجتمع الفرق الرياضية وشارك أخبارك وصورك وتفاعل مع الفرق الأخرى.</p>
+            <button onClick={() => setCurrentView('login')} className="px-14 py-4 bg-white text-blue-600 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform active:scale-95">تسجيل الدخول الآن</button>
           </div>
         )}
 
-        <div className="space-y-10">
+        <div className="space-y-12 pb-24">
           {posts.map(post => (
-            <div key={post.id} className="bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden hover:shadow-2xl transition-all duration-500 group">
-              <div className="p-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-4">
-                    <img src={post.teamLogo} className="w-14 h-14 rounded-2xl shadow-md border border-slate-100 object-cover" />
-                    <div>
-                      <h4 className="font-black text-xl text-slate-900 group-hover:text-blue-600 transition-colors">{post.teamName}</h4>
-                      <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">{new Date(post.created_at?.toDate()).toLocaleString('ar-DZ')}</p>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-slate-700 text-lg leading-relaxed mb-8 font-semibold pr-2 border-r-4 border-blue-500/10 whitespace-pre-wrap">{post.content}</p>
-                {post.imageUrl && (
-                  <div className="rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-inner group-hover:scale-[1.01] transition-transform duration-500">
-                    <img src={post.imageUrl} className="w-full max-h-[600px] object-cover" />
-                  </div>
-                )}
-                <div className="mt-8 pt-6 border-t border-slate-50 flex items-center gap-8 text-slate-400 font-black">
-                  <button className="flex items-center gap-2 hover:text-red-500 transition-colors"><Heart className="w-5 h-5" /> تفاعل</button>
-                  <button className="flex items-center gap-2 hover:text-blue-500 transition-colors"><MessageSquare className="w-5 h-5" /> تعليق</button>
-                </div>
-              </div>
-            </div>
+            <PostCard key={post.id} post={post} currentUser={user} onRefresh={fetchData} />
           ))}
+          {posts.length === 0 && (
+            <div className="py-32 text-center text-slate-300 font-black text-2xl border-4 border-dashed rounded-[4rem] bg-slate-50">
+              <Hash className="w-20 h-20 mx-auto mb-4 opacity-10" />
+              لا يوجد نشاط في الملتقى حالياً
+            </div>
+          )}
         </div>
       </div>
     );
@@ -491,11 +490,11 @@ export default function App() {
       case 'hub': return <HubView />;
       case 'live': return (
         <div className="max-w-7xl mx-auto py-16 px-6">
-          <h2 className="text-4xl font-black flex items-center gap-4 italic mb-16"><Radio className="text-red-600 animate-pulse w-10 h-10" /> قنوات البث المباشر</h2>
+          <h2 className="text-4xl font-black flex items-center gap-4 italic mb-16 justify-end">قنوات البث المباشر <Radio className="text-red-600 animate-pulse w-10 h-10" /></h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
             {liveChannels.map(ch => (
-              <div key={ch.id} className="bg-white rounded-[3rem] border border-slate-100 p-6 shadow-xl hover:shadow-2xl transition-all group overflow-hidden relative">
-                <div className="h-56 w-full relative mb-6 rounded-[2rem] overflow-hidden">
+              <div key={ch.id} className="bg-white rounded-[3.5rem] border border-slate-100 p-6 shadow-xl hover:shadow-2xl transition-all group overflow-hidden relative text-right">
+                <div className="h-56 w-full relative mb-6 rounded-[2.5rem] overflow-hidden">
                   <img src={ch.thumbnail_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                   <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase flex items-center gap-1"><div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div> مباشر</div>
                 </div>
@@ -510,7 +509,7 @@ export default function App() {
       );
       case 'login': return (
         <div className="max-w-md mx-auto py-24 px-6">
-          <div className="bg-white rounded-[3rem] p-12 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
+          <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
             <div className="bg-blue-600 w-20 h-20 rounded-3xl mx-auto mb-8 flex items-center justify-center shadow-xl rotate-3"><Trophy className="w-10 h-10 text-white" /></div>
             <h3 className="text-3xl font-black mb-10 text-slate-900 italic tracking-tight">دخول النادي</h3>
             <form onSubmit={async (e) => {
@@ -520,8 +519,8 @@ export default function App() {
               if (error) alert(error);
               else { setUser(data); setCurrentView('profile'); }
             }} className="space-y-5">
-              <input type="email" required placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold" />
-              <input type="password" required placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold" />
+              <input type="email" required placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold text-right" />
+              <input type="password" required placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold text-right" />
               <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl shadow-blue-500/20 hover:bg-blue-700 active:scale-[0.98] transition-all">تأكيد الدخول</button>
             </form>
           </div>
@@ -529,7 +528,7 @@ export default function App() {
       );
       case 'register': return (
         <div className="max-w-md mx-auto py-24 px-6">
-          <div className="bg-white rounded-[3rem] p-12 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
+          <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
             <h3 className="text-3xl font-black mb-10 text-slate-900 italic tracking-tight">تسجيل فريق جديد</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
@@ -544,11 +543,11 @@ export default function App() {
               if (res.error) alert(res.error);
               else { alert('تم التسجيل بنجاح!'); setCurrentView('login'); fetchData(); }
             }} className="space-y-4">
-              <input required placeholder="اسم الفريق" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold" />
-              <input required placeholder="اسم المدرب" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold" />
-              <input type="email" required placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold" />
-              <input type="password" required placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold" />
-              <input required placeholder="الولاية/المنطقة" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold" />
+              <input required placeholder="اسم الفريق" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
+              <input required placeholder="اسم المدرب" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
+              <input type="email" required placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
+              <input type="password" required placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
+              <input required placeholder="الولاية/المنطقة" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
               <button type="submit" className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-[0.98] transition-all">إرسال طلب الانضمام</button>
             </form>
           </div>
@@ -563,21 +562,21 @@ export default function App() {
                <h1 className="text-7xl md:text-9xl font-black mb-10 leading-tight tracking-tighter italic">بوابة البطولة</h1>
                <p className="text-slate-400 text-2xl mb-16 font-light max-w-3xl mx-auto leading-relaxed italic">مجتمع رياضي رقمي متكامل لإدارة الفرق، النتائج، والبث المباشر بأعلى التقنيات.</p>
                <div className="flex flex-wrap justify-center gap-6">
-                 <button onClick={() => setCurrentView('register')} className="px-14 py-6 bg-blue-600 rounded-[2rem] font-black text-xl shadow-2xl shadow-blue-600/20 hover:scale-105 transition-transform active:scale-95">سجل فريقك مجاناً</button>
-                 <button onClick={() => setCurrentView('hub')} className="px-14 py-6 bg-white/10 rounded-[2rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md">ملتقى الفرق</button>
+                 <button onClick={() => setCurrentView('register')} className="px-14 py-6 bg-blue-600 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-blue-600/20 hover:scale-105 transition-transform active:scale-95">سجل فريقك مجاناً</button>
+                 <button onClick={() => setCurrentView('hub')} className="px-14 py-6 bg-white/10 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md">ملتقى الفرق</button>
                </div>
              </div>
           </section>
           
           <section className="py-32 px-6 bg-white relative">
             <div className="max-w-7xl mx-auto">
-              <div className="flex items-center justify-between mb-24">
-                <div>
-                  <h2 className="text-5xl font-black text-slate-900 flex items-center gap-5 italic"><Users className="text-blue-600 w-12 h-12" /> النخبة المشاركة</h2>
-                  <p className="text-slate-400 font-bold mr-16 mt-2">الفرق الرياضية المسجلة رسمياً في المنصة</p>
-                </div>
-                <div className="bg-slate-50 px-8 py-4 rounded-3xl border border-slate-100">
+              <div className="flex items-center justify-between mb-24 text-right">
+                <div className="bg-slate-50 px-8 py-4 rounded-3xl border border-slate-100 order-2 md:order-1">
                   <span className="font-black text-3xl text-blue-600">{allTeams.length}</span> <span className="text-slate-400 font-bold mr-2">فريق</span>
+                </div>
+                <div className="order-1 md:order-2">
+                  <h2 className="text-5xl font-black text-slate-900 flex items-center gap-5 italic justify-end">النخبة المشاركة <Users className="text-blue-600 w-12 h-12" /></h2>
+                  <p className="text-slate-400 font-bold mt-2">الفرق الرياضية المسجلة رسمياً في المنصة</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-10">
@@ -632,36 +631,25 @@ export default function App() {
               </button>
 
               {isUserMenuOpen && (
-                <div className="absolute top-full left-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-3 z-[100] animate-in slide-in-from-top-2 duration-200">
+                <div className="absolute top-full left-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-3 z-[100] animate-in slide-in-from-top-2 duration-200 text-right">
                   <div className="p-4 mb-2 border-b border-slate-50">
                     <p className="text-sm font-black text-slate-900">{user.team_name}</p>
                     <p className="text-[10px] text-slate-400 font-bold">{user.contact_email}</p>
                   </div>
                   <div className="space-y-1">
-                    <button 
-                      onClick={() => {setCurrentView('profile'); setIsUserMenuOpen(false);}}
-                      className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right"
-                    >
-                      <User className="w-5 h-5 opacity-50 group-hover:opacity-100" /> بروفايل النادي
+                    <button onClick={() => {setCurrentView('profile'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                      بروفايل النادي <User className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
-                    <button 
-                      onClick={() => {setCurrentView('hub'); setIsUserMenuOpen(false);}}
-                      className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right"
-                    >
-                      <LayoutGrid className="w-5 h-5 opacity-50 group-hover:opacity-100" /> مشاركاتي
+                    <button onClick={() => {setCurrentView('hub'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                      مشاركاتي <LayoutGrid className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
-                    <button 
-                      className="w-full flex items-center gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right"
-                    >
-                      <Settings className="w-5 h-5 opacity-50 group-hover:opacity-100" /> الإعدادات
+                    <button className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                      الإعدادات <Settings className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-50">
-                    <button 
-                      onClick={() => { setUser(null); setCurrentView('home'); setIsUserMenuOpen(false); }}
-                      className="w-full flex items-center gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-500 group text-sm font-bold text-right"
-                    >
-                      <LogOut className="w-5 h-5" /> تسجيل الخروج
+                    <button onClick={() => { setUser(null); setCurrentView('home'); setIsUserMenuOpen(false); }} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-500 group text-sm font-bold">
+                      تسجيل الخروج <LogOut className="w-5 h-5" />
                     </button>
                   </div>
                 </div>

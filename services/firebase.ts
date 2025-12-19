@@ -12,9 +12,10 @@ import {
   updateDoc,
   doc,
   arrayUnion,
+  arrayRemove,
   limit
 } from "firebase/firestore";
-import { TeamRegistration, LiveChannel, Post } from "../types";
+import { TeamRegistration, LiveChannel, Post, Comment } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKnoCa3sKwZrQaUXy0PNkJ1FbsJGAOyjk",
@@ -111,6 +112,8 @@ export const FirebaseService = {
     try {
       const postToSave = {
         ...postData,
+        likes: [],
+        comments: [],
         created_at: Timestamp.now()
       };
       const docRef = await addDoc(collection(db, "posts"), postToSave);
@@ -128,6 +131,30 @@ export const FirebaseService = {
     } catch (error: any) {
       if (error.code === 'permission-denied') throw new Error("PERMISSION_DENIED");
       return [];
+    }
+  },
+
+  toggleLike: async (postId: string, teamId: string, isLiked: boolean) => {
+    try {
+      const postRef = doc(db, "posts", postId);
+      await updateDoc(postRef, {
+        likes: isLiked ? arrayRemove(teamId) : arrayUnion(teamId)
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
+    }
+  },
+
+  addComment: async (postId: string, comment: Comment) => {
+    try {
+      const postRef = doc(db, "posts", postId);
+      await updateDoc(postRef, {
+        comments: arrayUnion(comment)
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
     }
   }
 };

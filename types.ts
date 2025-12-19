@@ -16,6 +16,15 @@ export interface TeamRegistration {
   gallery?: string[]; // مصفوفة لصور الفريق
 }
 
+export interface Comment {
+  id: string;
+  teamId: string;
+  teamName: string;
+  teamLogo: string;
+  text: string;
+  created_at: any;
+}
+
 export interface Post {
   id?: string;
   teamId: string;
@@ -23,6 +32,8 @@ export interface Post {
   teamLogo: string;
   content: string;
   imageUrl?: string;
+  likes?: string[]; // مصفوفة تحتوي على معرفات الفرق التي أعجبت بالمنشور
+  comments?: Comment[];
   created_at: any;
 }
 
