@@ -30,9 +30,9 @@ export interface Post {
   teamId: string;
   teamName: string;
   teamLogo: string;
-  content: string;
+  content?: string; // جعلناه اختيارياً للسماح بنشر الصور فقط
   imageUrl?: string;
-  likes?: string[]; // مصفوفة تحتوي على معرفات الفرق التي أعجبت بالمنشور
+  likes?: string[]; 
   comments?: Comment[];
   created_at: any;
 }

@@ -58,8 +58,8 @@ export default function App() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // دالة متطورة لضغط الصور وتقليل حجمها لضمان توافقها مع Firestore
-  const compressImage = (base64Str: string, maxWidth = 1024, maxHeight = 1024): Promise<string> => {
+  // دالة ضغط الصور: تقلل الأبعاد والجودة لضمان عدم تجاوز حدود Firestore (1MB)
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
     return new Promise((resolve) => {
       const img = new Image();
       img.src = base64Str;
@@ -88,8 +88,8 @@ export default function App() {
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, width, height);
         }
-        // جودة 0.6 توفر توازناً مثالياً بين الحجم والوضوح
-        resolve(canvas.toDataURL('image/jpeg', 0.6));
+        // استخدام جودة 0.5 (50%) لضمان حجم ملف صغير جداً وسرعة رفع
+        resolve(canvas.toDataURL('image/jpeg', 0.5));
       };
     });
   };
@@ -465,22 +465,24 @@ export default function App() {
     const postImageInputRef = useRef<HTMLInputElement>(null);
 
     const handlePost = async () => {
+      // السماح بالنشر إذا وجد نص أو صورة
       if (!user || (!newPostContent.trim() && !newPostImage)) return;
+      
       setIsPosting(true);
       try {
         await FirebaseService.createPost({
           teamId: user.id!,
           teamName: user.team_name,
           teamLogo: user.logo_url!,
-          content: newPostContent,
+          content: newPostContent.trim() || undefined,
           imageUrl: newPostImage || undefined
         });
         setNewPostContent('');
         setNewPostImage('');
         await fetchData(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error posting:", err);
-        alert("عذراً، حدث خطأ أثناء النشر. يرجى التأكد من اتصال الإنترنت والمحاولة مرة أخرى.");
+        alert("فشل النشر: " + (err.message.includes("too large") ? "حجم الصورة كبير جداً، حاول بصورة أخرى" : "حدث خطأ غير متوقع"));
       } finally {
         setIsPosting(false);
       }
@@ -492,8 +494,8 @@ export default function App() {
         setIsProcessingImage(true);
         try {
           const base64 = await fileToBase64(file);
-          // ضغط الصورة فوراً لضمان سرعة الرفع وتجاوز قيود الحجم
-          const compressed = await compressImage(base64);
+          // ضغط الصورة فور اختيارها لضمان تجاوز قيود الحجم
+          const compressed = await compressImage(base64, 800, 800);
           setNewPostImage(compressed);
         } catch (err) {
           console.error("Post image upload error:", err);
@@ -509,7 +511,7 @@ export default function App() {
         <div className="flex items-center justify-between mb-12 text-right">
           <div className="w-full text-right">
             <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4 italic justify-end">ملتقى الفرق <Hash className="text-blue-600 w-10 h-10" /></h2>
-            <p className="text-slate-400 font-bold">يمكنك نشر أخبار فريقك (نصياً) أو مشاركة لقطات مميزة (صور)</p>
+            <p className="text-slate-400 font-bold">انشر فقرة نصية أو لقطة مصورة لفريقك</p>
           </div>
         </div>
         
@@ -526,13 +528,13 @@ export default function App() {
                 />
                 
                 {isProcessingImage && (
-                  <div className="flex items-center gap-2 text-blue-600 font-black text-sm justify-end p-2 bg-blue-50 rounded-xl">
+                  <div className="flex items-center gap-2 text-blue-600 font-black text-sm justify-end p-3 bg-blue-50 rounded-2xl">
                     <span>جاري ضغط ومعالجة الصورة...</span>
                     <Loader2 className="w-4 h-4 animate-spin" />
                   </div>
                 )}
 
-                {newPostImage && (
+                {newPostImage && !isProcessingImage && (
                   <div className="relative inline-block group float-right mb-4">
                     <img src={newPostImage} className="w-48 h-48 rounded-2xl object-cover border-4 border-white shadow-lg" />
                     <button onClick={() => setNewPostImage('')} className="absolute -top-3 -right-3 bg-red-500 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform"><X className="w-5 h-5" /></button>
@@ -545,7 +547,7 @@ export default function App() {
                     disabled={isPosting || isProcessingImage || (!newPostContent.trim() && !newPostImage)} 
                     className="w-full md:w-auto px-12 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
                   >
-                    {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر المنشور
+                    {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر الآن
                   </button>
                   <div className="flex-1 w-full">
                     <input type="file" ref={postImageInputRef} className="hidden" accept="image/*" onChange={handlePostImageUpload} />
@@ -554,7 +556,7 @@ export default function App() {
                       disabled={isProcessingImage || isPosting}
                       className="w-full pr-6 pl-4 py-4 bg-slate-50 rounded-2xl text-sm font-bold border-none outline-none flex items-center gap-3 text-slate-400 hover:bg-slate-100 transition-all justify-end disabled:opacity-50"
                     >
-                      {newPostImage ? 'تغيير الصورة' : 'إضافة صورة للمنشور'} <ImageIcon className="w-5 h-5" />
+                      {newPostImage ? 'تغيير الصورة' : 'إرفاق صورة للمنشور'} <ImageIcon className="w-5 h-5" />
                     </button>
                   </div>
                 </div>
