@@ -15,9 +15,11 @@ import {
   deleteDoc,
   arrayUnion,
   arrayRemove,
-  limit
+  limit,
+  setDoc,
+  increment
 } from "firebase/firestore";
-import { TeamRegistration, LiveChannel, Post, Comment } from "../types";
+import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKnoCa3sKwZrQaUXy0PNkJ1FbsJGAOyjk",
@@ -33,6 +35,73 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export const FirebaseService = {
+  // Stats
+  trackVisit: async () => {
+    try {
+      const docRef = doc(db, "settings", "stats");
+      await setDoc(docRef, { total_visits: increment(1) }, { merge: true });
+    } catch (e) {}
+  },
+
+  getStats: async () => {
+    try {
+      const docSnap = await getDoc(doc(db, "settings", "stats"));
+      return docSnap.exists() ? docSnap.data().total_visits : 0;
+    } catch (e) { return 0; }
+  },
+
+  // Matches Management
+  getMatches: async (): Promise<Match[]> => {
+    try {
+      const q = query(collection(db, "matches"), orderBy("date", "asc"));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Match));
+    } catch (error) { return []; }
+  },
+
+  createMatch: async (match: Omit<Match, 'id' | 'created_at'>) => {
+    try {
+      await addDoc(collection(db, "matches"), { ...match, created_at: Timestamp.now() });
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  updateMatch: async (id: string, data: Partial<Match>) => {
+    try {
+      await updateDoc(doc(db, "matches", id), data);
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  deleteMatch: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "matches", id));
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  // Ads Management
+  getAds: async (): Promise<AdConfig> => {
+    try {
+      const docRef = doc(db, "settings", "ads");
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as AdConfig;
+      }
+      return { under_header: "", after_draw: "", hub_top: "", hub_bottom: "" };
+    } catch (error) {
+      return { under_header: "", after_draw: "", hub_top: "", hub_bottom: "" };
+    }
+  },
+
+  updateAds: async (ads: AdConfig) => {
+    try {
+      const docRef = doc(db, "settings", "ads");
+      await setDoc(docRef, ads);
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
+  },
+
   // Live Channels Management
   getLiveChannels: async (all = false): Promise<LiveChannel[]> => {
     try {

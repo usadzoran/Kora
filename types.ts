@@ -6,14 +6,14 @@ export interface TeamRegistration {
   contact_email: string;
   password?: string;
   region: string;
-  municipality?: string; // البلدية
-  players_count?: number; // عدد اللاعبين
+  municipality?: string; 
+  players_count?: number; 
   created_at?: any;
   logo_url?: string;
   bio?: string;
   wins?: number;
   losses?: number;
-  gallery?: string[]; // مصفوفة لصور الفريق
+  gallery?: string[]; 
 }
 
 export interface Comment {
@@ -37,11 +37,6 @@ export interface Post {
   created_at: any;
 }
 
-export interface RegistrationState {
-  status: 'idle' | 'submitting' | 'success' | 'error';
-  errorMessage: string | null;
-}
-
 export interface LiveChannel {
   id?: string;
   name: string;
@@ -50,4 +45,32 @@ export interface LiveChannel {
   stream_url: string;
   is_active: boolean;
   created_at?: any;
+}
+
+export interface AdConfig {
+  under_header: string;
+  after_draw: string;
+  hub_top: string;
+  hub_bottom: string;
+}
+
+export interface Match {
+  id?: string;
+  homeTeamId: string;
+  homeTeamName: string;
+  homeTeamLogo: string;
+  awayTeamId: string;
+  awayTeamName: string;
+  awayTeamLogo: string;
+  date: string; // مثال: 2024-05-20
+  time: string; // مثال: 18:00
+  scoreHome: number;
+  scoreAway: number;
+  status: 'upcoming' | 'finished' | 'live';
+  tournament_round?: string; // مثال: نصف النهائي
+  created_at: any;
+}
+
+export interface VisitorStats {
+  total_visits: number;
 }
