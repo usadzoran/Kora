@@ -12,6 +12,7 @@ import {
   Timestamp,
   updateDoc,
   doc,
+  deleteDoc,
   arrayUnion,
   arrayRemove,
   limit
@@ -32,9 +33,11 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 export const FirebaseService = {
-  getLiveChannels: async (): Promise<LiveChannel[]> => {
+  // Live Channels Management
+  getLiveChannels: async (all = false): Promise<LiveChannel[]> => {
     try {
-      const q = query(collection(db, "live_channels"), where("is_active", "==", true));
+      const constraints = all ? [] : [where("is_active", "==", true)];
+      const q = query(collection(db, "live_channels"), ...constraints);
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveChannel));
     } catch (error: any) {
@@ -43,6 +46,28 @@ export const FirebaseService = {
     }
   },
 
+  createLiveChannel: async (data: LiveChannel) => {
+    try {
+      await addDoc(collection(db, "live_channels"), { ...data, created_at: Timestamp.now() });
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
+  },
+
+  updateLiveChannel: async (id: string, data: Partial<LiveChannel>) => {
+    try {
+      await updateDoc(doc(db, "live_channels", id), data);
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
+  },
+
+  deleteLiveChannel: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "live_channels", id));
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
+  },
+
+  // Teams Management
   getAllTeams: async (): Promise<TeamRegistration[]> => {
     try {
       const q = query(collection(db, "teams"), orderBy("created_at", "desc"));
@@ -62,10 +87,7 @@ export const FirebaseService = {
         return { id: docSnap.id, ...docSnap.data() } as TeamRegistration;
       }
       return null;
-    } catch (error) {
-      console.error("Error getting team:", error);
-      return null;
-    }
+    } catch (error) { return null; }
   },
 
   registerTeam: async (teamData: Omit<TeamRegistration, 'id' | 'created_at'>) => {
@@ -106,36 +128,31 @@ export const FirebaseService = {
       const teamRef = doc(db, "teams", teamId);
       await updateDoc(teamRef, data);
       return { success: true };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    } catch (error: any) { return { error: error.message }; }
+  },
+
+  deleteTeam: async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "teams", id));
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
   },
 
   addToGallery: async (teamId: string, imageUrl: string) => {
     try {
       const teamRef = doc(db, "teams", teamId);
-      await updateDoc(teamRef, {
-        gallery: arrayUnion(imageUrl)
-      });
+      await updateDoc(teamRef, { gallery: arrayUnion(imageUrl) });
       return { success: true };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    } catch (error: any) { return { error: error.message }; }
   },
 
+  // Posts Management
   createPost: async (postData: Omit<Post, 'id' | 'created_at'>) => {
     try {
-      const postToSave = {
-        ...postData,
-        likes: [],
-        comments: [],
-        created_at: Timestamp.now()
-      };
+      const postToSave = { ...postData, likes: [], comments: [], created_at: Timestamp.now() };
       const docRef = await addDoc(collection(db, "posts"), postToSave);
       return { id: docRef.id, ...postToSave };
-    } catch (error: any) {
-      throw error;
-    }
+    } catch (error: any) { throw error; }
   },
 
   getPosts: async (): Promise<Post[]> => {
@@ -149,27 +166,26 @@ export const FirebaseService = {
     }
   },
 
+  deletePost: async (postId: string) => {
+    try {
+      await deleteDoc(doc(db, "posts", postId));
+      return { success: true };
+    } catch (error: any) { return { error: error.message }; }
+  },
+
   toggleLike: async (postId: string, teamId: string, isLiked: boolean) => {
     try {
       const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        likes: isLiked ? arrayRemove(teamId) : arrayUnion(teamId)
-      });
+      await updateDoc(postRef, { likes: isLiked ? arrayRemove(teamId) : arrayUnion(teamId) });
       return { success: true };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    } catch (error: any) { return { error: error.message }; }
   },
 
   addComment: async (postId: string, comment: Comment) => {
     try {
       const postRef = doc(db, "posts", postId);
-      await updateDoc(postRef, {
-        comments: arrayUnion(comment)
-      });
+      await updateDoc(postRef, { comments: arrayUnion(comment) });
       return { success: true };
-    } catch (error: any) {
-      return { error: error.message };
-    }
+    } catch (error: any) { return { error: error.message }; }
   }
 };

@@ -30,7 +30,7 @@ export interface Post {
   teamId: string;
   teamName: string;
   teamLogo: string;
-  content?: string; // جعلناه اختيارياً للسماح بنشر الصور فقط
+  content?: string; 
   imageUrl?: string;
   likes?: string[]; 
   comments?: Comment[];
@@ -43,11 +43,11 @@ export interface RegistrationState {
 }
 
 export interface LiveChannel {
-  id: string;
+  id?: string;
   name: string;
   description: string;
   thumbnail_url: string;
   stream_url: string;
   is_active: boolean;
-  created_at: string;
+  created_at?: any;
 }
