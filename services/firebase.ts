@@ -196,7 +196,8 @@ export const FirebaseService = {
       const docRef = await addDoc(collection(db, "teams"), teamToSave);
       return { id: docRef.id, ...teamToSave, error: null };
     } catch (error: any) {
-      return { error: error.code === 'permission-denied' ? "PERMISSION_DENIED" : error.message };
+      // Added id: undefined to satisfy TypeScript union types when consuming code checks for id
+      return { id: undefined, error: error.code === 'permission-denied' ? "PERMISSION_DENIED" : error.message };
     }
   },
 
