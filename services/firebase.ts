@@ -1,3 +1,4 @@
+
 import { initializeApp } from "firebase/app";
 import { 
   getFirestore, 
@@ -7,9 +8,13 @@ import {
   query, 
   where, 
   orderBy, 
-  Timestamp
+  Timestamp,
+  updateDoc,
+  doc,
+  arrayUnion,
+  limit
 } from "firebase/firestore";
-import { TeamRegistration, LiveChannel } from "../types";
+import { TeamRegistration, LiveChannel, Post } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKnoCa3sKwZrQaUXy0PNkJ1FbsJGAOyjk",
@@ -21,9 +26,7 @@ const firebaseConfig = {
   appId: "1:689062563273:web:32d10b4c3b24a62a81ac18"
 };
 
-// Initialize Firebase once
 const app = initializeApp(firebaseConfig);
-// Initialize Firestore service explicitly with the initialized app
 const db = getFirestore(app);
 
 export const FirebaseService = {
@@ -33,10 +36,7 @@ export const FirebaseService = {
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as LiveChannel));
     } catch (error: any) {
-      console.error("Firebase Channels Error:", error);
-      if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission')) {
-        throw new Error("PERMISSION_DENIED");
-      }
+      if (error.code === 'permission-denied') throw new Error("PERMISSION_DENIED");
       return [];
     }
   },
@@ -47,10 +47,7 @@ export const FirebaseService = {
       const querySnapshot = await getDocs(q);
       return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as TeamRegistration));
     } catch (error: any) {
-      console.error("Firebase Teams Error:", error);
-      if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission')) {
-        throw new Error("PERMISSION_DENIED");
-      }
+      if (error.code === 'permission-denied') throw new Error("PERMISSION_DENIED");
       return [];
     }
   },
@@ -59,21 +56,19 @@ export const FirebaseService = {
     try {
       const teamToSave = {
         ...teamData,
-        logo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamData.team_name)}&background=random&color=fff&size=128`,
+        logo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamData.team_name)}&background=2563eb&color=fff&size=200`,
         wins: 0,
         losses: 0,
-        bio: "فريق رياضي جديد.",
+        players_count: 0,
+        municipality: teamData.region,
+        bio: "فريق رياضي طموح.",
+        gallery: [],
         created_at: Timestamp.now()
       };
-
       const docRef = await addDoc(collection(db, "teams"), teamToSave);
       return { id: docRef.id, ...teamToSave, error: null };
     } catch (error: any) {
-      console.error("Firebase Register Error:", error);
-      if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission')) {
-        return { error: "PERMISSION_DENIED" };
-      }
-      return { error: error.message };
+      return { error: error.code === 'permission-denied' ? "PERMISSION_DENIED" : error.message };
     }
   },
 
@@ -81,24 +76,58 @@ export const FirebaseService = {
     try {
       const q = query(collection(db, "teams"), where("contact_email", "==", email));
       const querySnapshot = await getDocs(q);
-      
-      if (querySnapshot.empty) {
-        throw new Error("الحساب غير موجود.");
-      }
-
+      if (querySnapshot.empty) throw new Error("الحساب غير موجود.");
       const team = { id: querySnapshot.docs[0].id, ...querySnapshot.docs[0].data() } as TeamRegistration;
-      
-      if (password && team.password !== password) {
-        throw new Error("كلمة المرور غير صحيحة.");
-      }
-
+      if (password && team.password !== password) throw new Error("كلمة المرور غير صحيحة.");
       return { data: team, error: null };
     } catch (error: any) {
-      console.error("Firebase Login Error:", error);
-      if (error.code === 'permission-denied' || error.message?.toLowerCase().includes('permission')) {
-        return { data: null, error: "PERMISSION_DENIED" };
-      }
-      return { data: null, error: error.message };
+      return { data: null, error: error.code === 'permission-denied' ? "PERMISSION_DENIED" : error.message };
+    }
+  },
+
+  updateTeamProfile: async (teamId: string, data: Partial<TeamRegistration>) => {
+    try {
+      const teamRef = doc(db, "teams", teamId);
+      await updateDoc(teamRef, data);
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
+    }
+  },
+
+  addToGallery: async (teamId: string, imageUrl: string) => {
+    try {
+      const teamRef = doc(db, "teams", teamId);
+      await updateDoc(teamRef, {
+        gallery: arrayUnion(imageUrl)
+      });
+      return { success: true };
+    } catch (error: any) {
+      return { error: error.message };
+    }
+  },
+
+  createPost: async (postData: Omit<Post, 'id' | 'created_at'>) => {
+    try {
+      const postToSave = {
+        ...postData,
+        created_at: Timestamp.now()
+      };
+      const docRef = await addDoc(collection(db, "posts"), postToSave);
+      return { id: docRef.id, ...postToSave };
+    } catch (error: any) {
+      throw error;
+    }
+  },
+
+  getPosts: async (): Promise<Post[]> => {
+    try {
+      const q = query(collection(db, "posts"), orderBy("created_at", "desc"), limit(50));
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post));
+    } catch (error: any) {
+      if (error.code === 'permission-denied') throw new Error("PERMISSION_DENIED");
+      return [];
     }
   }
 };

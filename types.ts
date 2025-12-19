@@ -4,9 +4,11 @@ export interface TeamRegistration {
   team_name: string;
   coach_name: string;
   contact_email: string;
-  password?: string; // حقل كلمة المرور الجديد
+  password?: string;
   region: string;
-  created_at?: string;
+  municipality?: string; // البلدية
+  players_count?: number; // عدد اللاعبين
+  created_at?: any;
   logo_url?: string;
   bio?: string;
   wins?: number;
@@ -14,27 +16,19 @@ export interface TeamRegistration {
   gallery?: string[]; // مصفوفة لصور الفريق
 }
 
+export interface Post {
+  id?: string;
+  teamId: string;
+  teamName: string;
+  teamLogo: string;
+  content: string;
+  imageUrl?: string;
+  created_at: any;
+}
+
 export interface RegistrationState {
   status: 'idle' | 'submitting' | 'success' | 'error';
   errorMessage: string | null;
-}
-
-export interface Message {
-  id: string;
-  senderId: string;
-  receiverId: string;
-  content: string;
-  timestamp: string;
-  isRead: boolean;
-}
-
-export interface ChatContact {
-  id: string;
-  name: string;
-  avatar: string;
-  role: 'Admin' | 'Coach';
-  lastMessage?: string;
-  unreadCount?: number;
 }
 
 export interface LiveChannel {
