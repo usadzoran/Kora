@@ -113,8 +113,8 @@ const RegisterView = ({ onSuccess, onSwitchToLogin }: { onSuccess: () => void, o
   );
 };
 
-const LoginView = ({ onLoginSuccess, onSwitchToRegister }: { onLoginSuccess: (user: TeamRegistration) => void, onSwitchToRegister: () => void }) => {
-  const [email, setEmail] = useState('');
+const LoginView = ({ onLoginSuccess, onSwitchToRegister, initialEmail = '' }: { onLoginSuccess: (user: TeamRegistration) => void, onSwitchToRegister: () => void, initialEmail?: string }) => {
+  const [email, setEmail] = useState(initialEmail);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [error, setError] = useState('');
 
@@ -157,16 +157,7 @@ const LoginView = ({ onLoginSuccess, onSwitchToRegister }: { onLoginSuccess: (us
           </button>
         </form>
 
-        <div className="relative my-8 text-center">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-100"></div></div>
-          <span className="relative px-4 bg-white text-[10px] font-black text-slate-300 uppercase">أو</span>
-        </div>
-
-        <button onClick={() => onLoginSuccess({ contact_email: 'admin@portal.com', team_name: 'الإدارة' } as any)} className="w-full py-3 bg-blue-50 text-blue-700 text-xs font-bold rounded-xl hover:bg-blue-100 transition-all mb-6">
-          دخول تجريبي كمسؤول
-        </button>
-
-        <p className="text-center text-slate-500 text-sm font-medium">
+        <p className="mt-8 text-center text-slate-500 text-sm font-medium">
           ليس لديك حساب؟ <button onClick={onSwitchToRegister} className="text-blue-600 font-bold hover:underline">سجل فريقك الآن</button>
         </p>
       </div>
@@ -394,11 +385,27 @@ export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('home');
   const [user, setUser] = useState<TeamRegistration | null>(null);
   const [liveChannels, setLiveChannels] = useState<LiveChannel[]>([]);
+  const [secretClickCount, setSecretClickCount] = useState(0);
 
   useEffect(() => {
     const fetchChannels = async () => { setLiveChannels(await SupabaseService.getLiveChannels()); };
     fetchChannels();
+    
+    // Check for secret hash on load
+    if (window.location.hash === '#admin-portal') {
+      setCurrentView('login');
+      alert('مرحباً بك في بوابة الإدارة السرية. يرجى تسجيل الدخول بحساب الأدمن.');
+    }
   }, []);
+
+  const handleSecretTrigger = () => {
+    setSecretClickCount(prev => prev + 1);
+    if (secretClickCount >= 2) {
+      setSecretClickCount(0);
+      setCurrentView('login');
+      alert('تم تفعيل الوصول السري للأدمن.');
+    }
+  };
 
   const isAdmin = user?.contact_email === 'admin@portal.com';
 
@@ -407,7 +414,7 @@ export default function App() {
       case 'admin': return isAdmin ? <AdminDashboard /> : <LoginView onLoginSuccess={(u) => { setUser(u); setCurrentView('admin'); }} onSwitchToRegister={() => setCurrentView('register')} />;
       case 'profile': return user ? <ProfileView user={user} onUpdate={setUser} /> : <LoginView onLoginSuccess={(u) => { setUser(u); setCurrentView('profile'); }} onSwitchToRegister={() => setCurrentView('register')} />;
       case 'live': return <LiveChannelsView channels={liveChannels} />;
-      case 'login': return <LoginView onLoginSuccess={(u) => { setUser(u); setCurrentView(u.contact_email === 'admin@portal.com' ? 'admin' : 'profile'); }} onSwitchToRegister={() => setCurrentView('register')} />;
+      case 'login': return <LoginView initialEmail={window.location.hash === '#admin-portal' ? 'admin@portal.com' : ''} onLoginSuccess={(u) => { setUser(u); setCurrentView(u.contact_email === 'admin@portal.com' ? 'admin' : 'profile'); }} onSwitchToRegister={() => setCurrentView('register')} />;
       case 'register': return <RegisterView onSuccess={() => setCurrentView('login')} onSwitchToLogin={() => setCurrentView('login')} />;
       default: return (
         <>
@@ -433,7 +440,7 @@ export default function App() {
           <button onClick={() => setCurrentView('home')} className={`hover:text-blue-600 transition-colors ${currentView === 'home' ? 'text-blue-600' : ''}`}>الرئيسية</button>
           <button onClick={() => setCurrentView('live')} className={`hover:text-red-600 transition-colors ${currentView === 'live' ? 'text-red-600' : ''}`}>البث المباشر</button>
           {user && <button onClick={() => setCurrentView('profile')} className={`hover:text-blue-600 transition-colors ${currentView === 'profile' ? 'text-blue-600' : ''}`}>فريقي</button>}
-          {isAdmin && <button onClick={() => setCurrentView('admin')} className={`hover:text-blue-600 transition-colors ${currentView === 'admin' ? 'text-blue-600' : ''}`}>الإدارة</button>}
+          {isAdmin && <button onClick={() => setCurrentView('admin')} className={`hover:text-blue-600 transition-colors ${currentView === 'admin' ? 'text-blue-600' : ''}`}>لوحة الإدارة</button>}
         </div>
         <div className="flex items-center gap-4">
           {user ? (
@@ -453,7 +460,13 @@ export default function App() {
       <main className="pb-20">{renderContent()}</main>
       <footer className="bg-slate-900 text-slate-500 py-16 text-center border-t border-slate-800">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="flex items-center justify-center gap-2 font-black text-xl text-white mb-6"><Trophy className="w-8 h-8 text-blue-600" /> <span>TournamentPortal</span></div>
+          <div className="flex items-center justify-center gap-2 font-black text-xl text-white mb-6">
+            <Trophy 
+              onClick={handleSecretTrigger} 
+              className="w-8 h-8 text-blue-600 cursor-help transition-transform active:scale-125" 
+            /> 
+            <span>TournamentPortal</span>
+          </div>
           <p className="text-[10px] uppercase tracking-widest leading-loose">منصة إدارة البطولات الرياضية الاحترافية. نحن نؤمن بأن كل لاعب يستحق أن يظهر موهبته للعالم.</p>
           <div className="mt-8 pt-8 border-t border-slate-800 text-[9px] font-bold">&copy; 2024 جميع الحقوق محفوظة.</div>
         </div>
