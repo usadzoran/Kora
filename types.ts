@@ -4,6 +4,7 @@ export interface TeamRegistration {
   team_name: string;
   coach_name: string;
   contact_email: string;
+  password?: string; // حقل كلمة المرور الجديد
   region: string;
   created_at?: string;
   logo_url?: string;

@@ -5,7 +5,7 @@ import { RegistrationState, TeamRegistration, Message, ChatContact, LiveChannel 
 import { 
   Trophy, User, Mail, MapPin, Shield, CheckCircle2, AlertCircle, Loader2,
   Calendar, Clock, ArrowRight, Menu, X, LogIn, LayoutDashboard, MessageSquare,
-  Settings, Send, LogOut, Edit2, Play, Radio, Activity, Plus, Trash2, Eye, EyeOff, Users, BarChart3, Save, Award, Target, Camera, Image as ImageIcon, UserPlus, Share2, ExternalLink
+  Settings, Send, LogOut, Edit2, Play, Radio, Activity, Plus, Trash2, Eye, EyeOff, Users, BarChart3, Save, Award, Target, Camera, Image as ImageIcon, UserPlus, Share2, Lock
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'messages' | 'live' | 'admin' | 'login' | 'register' | 'public-team';
@@ -14,6 +14,99 @@ const MATCHES = [
   { id: 1, team1: "Thunderbolts", logo1: "https://ui-avatars.com/api/?name=T&background=ef4444&color=fff&rounded=true", team2: "Iron Dragons", logo2: "https://ui-avatars.com/api/?name=I&background=3b82f6&color=fff&rounded=true", time: "اليوم، 18:00", venue: "الملعب الرئيسي" },
   { id: 2, team1: "Golden Eagles", logo1: "https://ui-avatars.com/api/?name=G&background=eab308&color=fff&rounded=true", team2: "Shadow Ninjas", logo2: "https://ui-avatars.com/api/?name=S&background=1e293b&color=fff&rounded=true", time: "غداً، 14:00", venue: "الملعب الشمالي" }
 ];
+
+const RegisterView = ({ onSuccess, onSwitchToLogin }: { onSuccess: () => void, onSwitchToLogin: () => void }) => {
+  const [formData, setFormData] = useState({ team_name: '', coach_name: '', contact_email: '', password: '', region: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError('');
+    const { data, error } = await SupabaseService.registerTeam(formData);
+    if (!error) {
+      alert('تم تسجيل فريقك بنجاح! يمكنك الآن تسجيل الدخول.');
+      onSuccess();
+    } else { 
+      setError('حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.'); 
+    }
+    setIsSubmitting(false);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto py-12 px-6">
+      <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200 overflow-hidden flex flex-col lg:flex-row border border-slate-100">
+        <div className="lg:w-2/5 bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-12 flex flex-col justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+          <div className="relative z-10">
+            <Trophy className="w-16 h-16 mb-8 text-blue-200" />
+            <h2 className="text-4xl font-black mb-6 leading-tight">ابدأ رحلة البطولة مع فريقك</h2>
+            <p className="text-blue-100 mb-10 text-lg">سجل فريقك اليوم واحصلي على فرصة للمنافسة في أكبر دوري رياضي مع تغطية حية واحترافية.</p>
+            <div className="space-y-6">
+              {[ { icon: Shield, text: "نظام حماية وإدارة بيانات احترافي" }, { icon: Radio, text: "بث مباشر لجميع مباريات فريقك" }, { icon: Award, text: "إحصائيات دقيقة وتتبع للأداء" } ].map((item, i) => (
+                <div key={i} className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><item.icon className="w-5 h-5" /></div><span className="font-bold text-sm">{item.text}</span></div>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="lg:w-3/5 p-12 md:p-16">
+          <div className="max-w-md mx-auto">
+            <h3 className="text-2xl font-black text-slate-900 mb-2">تسجيل فريق جديد</h3>
+            <p className="text-slate-500 mb-8 font-medium">أدخل بيانات الفريق والمدرب للبدء</p>
+            {error && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</div>}
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">اسم الفريق</label><div className="relative"><input required value={formData.team_name} onChange={e => setFormData({...formData, team_name: e.target.value})} placeholder="مثلاً: صقور الدوحة" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><Shield className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">اسم المدرب</label><div className="relative"><input required value={formData.coach_name} onChange={e => setFormData({...formData, coach_name: e.target.value})} placeholder="الاسم الكامل" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">البريد الإلكتروني</label><div className="relative"><input type="email" required value={formData.contact_email} onChange={e => setFormData({...formData, contact_email: e.target.value})} placeholder="example@domain.com" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">كلمة المرور</label><div className="relative"><input type={showPassword ? "text" : "password"} required value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} placeholder="••••••••" className="w-full pl-12 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div></div>
+              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">المنطقة</label><div className="relative"><input required value={formData.region} onChange={e => setFormData({...formData, region: e.target.value})} placeholder="المنطقة" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
+              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl hover:bg-blue-700 transition-all active:scale-95">{isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "تسجيل الفريق الآن"}</button>
+            </form>
+            <p className="mt-8 text-center text-slate-500 text-sm">لديك حساب؟ <button onClick={onSwitchToLogin} className="text-blue-600 font-bold hover:underline">سجل دخولك</button></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const LoginView = ({ onLoginSuccess, onSwitchToRegister, initialEmail = '' }: { onLoginSuccess: (user: TeamRegistration) => void, onSwitchToRegister: () => void, initialEmail?: string }) => {
+  const [email, setEmail] = useState(initialEmail);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoggingIn(true);
+    setError('');
+    const { data, error } = await SupabaseService.login(email, password);
+    if (!error && data) { 
+      onLoginSuccess(data); 
+    } else { 
+      setError(error?.message || 'البريد الإلكتروني أو كلمة المرور غير صحيحة.'); 
+    }
+    setIsLoggingIn(false);
+  };
+
+  return (
+    <div className="max-w-md mx-auto py-24 px-6">
+      <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-slate-100">
+        <div className="text-center mb-10"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-xl"><LogIn className="w-8 h-8" /></div><h3 className="text-2xl font-black">تسجيل الدخول</h3></div>
+        {error && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</div>}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">البريد الإلكتروني</label><div className="relative"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="example@domain.com" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
+          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">كلمة المرور</label><div className="relative"><input type={showPassword ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full pl-12 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500 transition-all" /><Lock className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">{showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div></div>
+          <button type="submit" disabled={isLoggingIn} className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl hover:bg-slate-800 transition-all active:scale-95">{isLoggingIn ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "دخول الحساب"}</button>
+        </form>
+        <p className="mt-8 text-center text-slate-500 text-sm">ليس لديك حساب؟ <button onClick={onSwitchToRegister} className="text-blue-600 font-bold hover:underline">سجل فريقك</button></p>
+      </div>
+    </div>
+  );
+};
 
 const PublicTeamView = ({ team }: { team: TeamRegistration }) => {
   return (
@@ -65,88 +158,6 @@ const PublicTeamView = ({ team }: { team: TeamRegistration }) => {
             <p className="text-slate-600 leading-loose text-lg whitespace-pre-line">{team.bio || "هذا الفريق لم يضف نبذة تعريفية بعد."}</p>
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-const RegisterView = ({ onSuccess, onSwitchToLogin }: { onSuccess: () => void, onSwitchToLogin: () => void }) => {
-  const [formData, setFormData] = useState({ team_name: '', coach_name: '', contact_email: '', region: '' });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError('');
-    const { data, error } = await SupabaseService.registerTeam(formData);
-    if (!error) {
-      alert('تم تسجيل فريقك بنجاح! يمكنك الآن تسجيل الدخول.');
-      onSuccess();
-    } else { setError('حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى.'); }
-    setIsSubmitting(false);
-  };
-
-  return (
-    <div className="max-w-6xl mx-auto py-12 px-6">
-      <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200 overflow-hidden flex flex-col lg:flex-row border border-slate-100">
-        <div className="lg:w-2/5 bg-gradient-to-br from-blue-600 to-indigo-800 text-white p-12 flex flex-col justify-center relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-          <div className="relative z-10">
-            <Trophy className="w-16 h-16 mb-8 text-blue-200" />
-            <h2 className="text-4xl font-black mb-6 leading-tight">ابدأ رحلة البطولة مع فريقك</h2>
-            <p className="text-blue-100 mb-10 text-lg">سجل فريقك اليوم واحصلي على فرصة للمنافسة في أكبر دوري رياضي مع تغطية حية واحترافية.</p>
-            <div className="space-y-6">
-              {[ { icon: Shield, text: "نظام حماية وإدارة بيانات احترافي" }, { icon: Radio, text: "بث مباشر لجميع مباريات فريقك" }, { icon: Award, text: "إحصائيات دقيقة وتتبع للأداء" } ].map((item, i) => (
-                <div key={i} className="flex items-center gap-4"><div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0"><item.icon className="w-5 h-5" /></div><span className="font-bold text-sm">{item.text}</span></div>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div className="lg:w-3/5 p-12 md:p-16">
-          <div className="max-w-md mx-auto">
-            <h3 className="text-2xl font-black text-slate-900 mb-2">تسجيل فريق جديد</h3>
-            <p className="text-slate-500 mb-8 font-medium">أدخل بيانات الفريق والمدرب للبدء</p>
-            {error && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-sm font-bold flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {error}</div>}
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">اسم الفريق</label><div className="relative"><input required value={formData.team_name} onChange={e => setFormData({...formData, team_name: e.target.value})} placeholder="مثلاً: صقور الدوحة" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500" /><Shield className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">اسم المدرب</label><div className="relative"><input required value={formData.coach_name} onChange={e => setFormData({...formData, coach_name: e.target.value})} placeholder="الاسم الكامل" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500" /><User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">البريد الإلكتروني</label><div className="relative"><input type="email" required value={formData.contact_email} onChange={e => setFormData({...formData, contact_email: e.target.value})} placeholder="example@domain.com" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500" /><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
-              <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">المنطقة</label><div className="relative"><input required value={formData.region} onChange={e => setFormData({...formData, region: e.target.value})} placeholder="المنطقة" className="w-full pl-4 pr-11 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-blue-500" /><MapPin className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
-              <button type="submit" disabled={isSubmitting} className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl">{isSubmitting ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "تسجيل الفريق الآن"}</button>
-            </form>
-            <p className="mt-8 text-center text-slate-500 text-sm">لديك حساب؟ <button onClick={onSwitchToLogin} className="text-blue-600 font-bold hover:underline">سجل دخولك</button></p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const LoginView = ({ onLoginSuccess, onSwitchToRegister, initialEmail = '' }: { onLoginSuccess: (user: TeamRegistration) => void, onSwitchToRegister: () => void, initialEmail?: string }) => {
-  const [email, setEmail] = useState(initialEmail);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
-    setError('');
-    const { data, error } = await SupabaseService.login(email);
-    if (!error && data) { onLoginSuccess(data); } else { setError('البريد الإلكتروني غير مسجل.'); }
-    setIsLoggingIn(false);
-  };
-
-  return (
-    <div className="max-w-md mx-auto py-24 px-6">
-      <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border border-slate-100">
-        <div className="text-center mb-10"><div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white shadow-xl"><LogIn className="w-8 h-8" /></div><h3 className="text-2xl font-black">تسجيل الدخول</h3></div>
-        {error && <div className="mb-6 p-4 bg-red-50 text-red-600 rounded-xl text-xs font-bold">{error}</div>}
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-400 uppercase px-1">البريد الإلكتروني</label><div className="relative"><input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="example@domain.com" className="w-full pl-4 pr-11 py-4 bg-slate-50 border rounded-2xl outline-none" /><Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300" /></div></div>
-          <button type="submit" disabled={isLoggingIn} className="w-full py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-xl">{isLoggingIn ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : "دخول الحساب"}</button>
-        </form>
-        <p className="mt-8 text-center text-slate-500 text-sm">ليس لديك حساب؟ <button onClick={onSwitchToRegister} className="text-blue-600 font-bold hover:underline">سجل فريقك</button></p>
       </div>
     </div>
   );

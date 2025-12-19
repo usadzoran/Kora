@@ -76,9 +76,24 @@ export const SupabaseService = {
     return { data, error };
   },
 
-  login: async (email: string) => {
-    const { data, error } = await supabase.from('teams').select('*').eq('contact_email', email).single();
-    return { data, error };
+  login: async (email: string, password?: string) => {
+    if (isMock || !supabase) return { error: 'No connection' };
+    
+    // في الإنتاج، يجب استخدام Supabase Auth، لكن هنا نقوم بالتحقق من جدول الفرق مباشرة
+    const { data, error } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('contact_email', email)
+      .single();
+
+    if (error) return { data: null, error };
+    
+    // تحقق بسيط من كلمة المرور (في تطبيق حقيقي يجب أن تكون مشفرة)
+    if (password && data.password !== password) {
+      return { data: null, error: { message: 'كلمة المرور غير صحيحة' } };
+    }
+
+    return { data, error: null };
   },
 
   updateProfile: async (id: string, updates: Partial<TeamRegistration>) => {
