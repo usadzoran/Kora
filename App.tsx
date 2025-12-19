@@ -140,7 +140,9 @@ export default function App() {
               <img src={post.teamLogo} className="w-14 h-14 rounded-2xl shadow-md border border-slate-100 object-cover order-1" />
             </div>
           </div>
-          <p className="text-slate-700 text-lg leading-relaxed mb-8 font-semibold pr-4 border-r-4 border-blue-500/10 text-right whitespace-pre-wrap">{post.content}</p>
+          {post.content && (
+            <p className="text-slate-700 text-lg leading-relaxed mb-8 font-semibold pr-4 border-r-4 border-blue-500/10 text-right whitespace-pre-wrap">{post.content}</p>
+          )}
           {post.imageUrl && (
             <div className="rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-inner group-hover:scale-[1.01] transition-transform duration-500 mb-8">
               <img src={post.imageUrl} className="w-full max-h-[600px] object-cover" />
@@ -267,6 +269,24 @@ export default function App() {
       }
     };
 
+    const handleShareGalleryImage = async (imgUrl: string) => {
+      if (!user) return;
+      setIsSaving(true);
+      try {
+        await FirebaseService.createPost({
+          teamId: user.id!,
+          teamName: user.team_name,
+          teamLogo: user.logo_url!,
+          content: 'شارك صورة من ألبوم الفريق 🏆',
+          imageUrl: imgUrl
+        });
+        setCurrentView('hub');
+        fetchData();
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
     return (
       <div className="max-w-6xl mx-auto py-12 px-6 animate-in slide-in-from-bottom duration-500">
         <div className="bg-white rounded-[3.5rem] shadow-2xl overflow-hidden border border-slate-100">
@@ -360,6 +380,15 @@ export default function App() {
                 {user.gallery?.map((img, i) => (
                   <div key={i} className="aspect-[4/5] rounded-[2.5rem] overflow-hidden border-[6px] border-white shadow-2xl group relative cursor-pointer hover:-translate-y-2 transition-all duration-500">
                     <img src={img} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
+                        <button 
+                          onClick={() => handleShareGalleryImage(img)}
+                          className="bg-white text-blue-600 p-4 rounded-2xl shadow-xl hover:scale-110 transition-transform font-black flex flex-col items-center gap-2"
+                        >
+                          <Share2 className="w-6 h-6" />
+                          <span className="text-[10px]">مشاركة في الملتقى</span>
+                        </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -377,7 +406,7 @@ export default function App() {
     const postImageInputRef = useRef<HTMLInputElement>(null);
 
     const handlePost = async () => {
-      if (!user || !newPostContent) return;
+      if (!user || (!newPostContent.trim() && !newPostImage)) return;
       setIsPosting(true);
       try {
         await FirebaseService.createPost({
@@ -410,9 +439,9 @@ export default function App() {
     return (
       <div className="max-w-4xl mx-auto py-12 px-6 animate-in fade-in duration-700">
         <div className="flex items-center justify-between mb-12 text-right">
-          <div className="w-full">
+          <div className="w-full text-right">
             <h2 className="text-4xl font-black text-slate-900 flex items-center gap-4 italic justify-end">ملتقى الفرق <Hash className="text-blue-600 w-10 h-10" /></h2>
-            <p className="text-slate-400 font-bold mr-0">تواصل وشارك أخبارك مع مجتمع البطولة</p>
+            <p className="text-slate-400 font-bold">هنا تنشر الفرق أخبارها وتتفاعل مع بعضها البعض</p>
           </div>
         </div>
         
@@ -438,7 +467,7 @@ export default function App() {
                 <div className="flex flex-col md:flex-row items-center gap-4 clear-both pt-4">
                   <button 
                     onClick={handlePost} 
-                    disabled={isPosting || !newPostContent} 
+                    disabled={isPosting || (!newPostContent.trim() && !newPostImage)} 
                     className="w-full md:w-auto px-12 py-4 bg-blue-600 text-white rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-blue-700 disabled:opacity-50 shadow-xl shadow-blue-500/20 active:scale-95 transition-all"
                   >
                     {isPosting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />} نشر الآن
@@ -459,10 +488,9 @@ export default function App() {
           </div>
         ) : (
           <div className="bg-blue-600 text-white p-12 rounded-[3.5rem] shadow-xl text-center mb-12 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl"></div>
             <h3 className="text-3xl font-black mb-4">سجل دخولك لتشارك في الملتقى</h3>
-            <p className="text-blue-100 mb-10 text-lg opacity-80">انضم إلى مجتمع الفرق الرياضية وشارك أخبارك وصورك وتفاعل مع الفرق الأخرى.</p>
-            <button onClick={() => setCurrentView('login')} className="px-14 py-4 bg-white text-blue-600 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform active:scale-95">تسجيل الدخول الآن</button>
+            <p className="text-blue-100 mb-10 text-lg opacity-80">جميع منشورات الفرق تظهر هنا للجميع. تفاعل مع مجتمعك الرياضي الآن!</p>
+            <button onClick={() => setCurrentView('login')} className="px-14 py-4 bg-white text-blue-600 rounded-2xl font-black shadow-xl hover:scale-105 transition-transform active:scale-95">تسجيل الدخول</button>
           </div>
         )}
 
@@ -473,7 +501,7 @@ export default function App() {
           {posts.length === 0 && (
             <div className="py-32 text-center text-slate-300 font-black text-2xl border-4 border-dashed rounded-[4rem] bg-slate-50">
               <Hash className="w-20 h-20 mx-auto mb-4 opacity-10" />
-              لا يوجد نشاط في الملتقى حالياً
+              لا توجد منشورات في الملتقى حالياً
             </div>
           )}
         </div>
@@ -574,7 +602,7 @@ export default function App() {
                 <div className="bg-slate-50 px-8 py-4 rounded-3xl border border-slate-100 order-2 md:order-1">
                   <span className="font-black text-3xl text-blue-600">{allTeams.length}</span> <span className="text-slate-400 font-bold mr-2">فريق</span>
                 </div>
-                <div className="order-1 md:order-2">
+                <div className="order-1 md:order-2 text-right">
                   <h2 className="text-5xl font-black text-slate-900 flex items-center gap-5 italic justify-end">النخبة المشاركة <Users className="text-blue-600 w-12 h-12" /></h2>
                   <p className="text-slate-400 font-bold mt-2">الفرق الرياضية المسجلة رسمياً في المنصة</p>
                 </div>
