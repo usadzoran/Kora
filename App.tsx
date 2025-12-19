@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from './services/firebase';
 import { TeamRegistration, LiveChannel, Post, Comment } from './types';
@@ -53,12 +54,15 @@ export default function App() {
   const [allTeams, setAllTeams] = useState<TeamRegistration[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [permissionError, setPermissionError] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const fetchData = async () => {
-    setIsLoading(true);
+  const fetchData = async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    else setIsRefreshing(true);
+    
     setPermissionError(false);
     try {
       const [channels, teams, hubPosts] = await Promise.all([
@@ -72,7 +76,8 @@ export default function App() {
     } catch (err: any) {
       if (err.message === "PERMISSION_DENIED") setPermissionError(true);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
+      else setIsRefreshing(false);
     }
   };
 
@@ -126,15 +131,24 @@ export default function App() {
       onRefresh();
     };
 
+    const formatTimestamp = (ts: any) => {
+      if (!ts) return '';
+      const date = ts.toDate ? ts.toDate() : new Date(ts);
+      return date.toLocaleString('ar-DZ', { 
+        year: 'numeric', month: 'long', day: 'numeric', 
+        hour: '2-digit', minute: '2-digit' 
+      });
+    };
+
     return (
       <div className="bg-white rounded-[3rem] shadow-xl border border-slate-50 overflow-hidden hover:shadow-2xl transition-all duration-500 group animate-in slide-in-from-bottom-4">
         <div className="p-8">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-4 text-right">
-              <div className="order-2">
+              <div className="order-2 text-right">
                 <h4 className="font-black text-xl text-slate-900 group-hover:text-blue-600 transition-colors">{post.teamName}</h4>
                 <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-0.5">
-                  {new Date(post.created_at?.toDate ? post.created_at.toDate() : post.created_at).toLocaleString('ar-DZ')}
+                  {formatTimestamp(post.created_at)}
                 </p>
               </div>
               <img src={post.teamLogo} className="w-14 h-14 rounded-2xl shadow-md border border-slate-100 object-cover order-1" />
@@ -176,11 +190,11 @@ export default function App() {
                   <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-slate-400 font-bold uppercase">
-                        {new Date(comment.created_at?.toDate ? comment.created_at.toDate() : comment.created_at).toLocaleTimeString('ar-DZ')}
+                        {formatTimestamp(comment.created_at)}
                       </span>
                       <p className="font-black text-sm text-slate-900">{comment.teamName}</p>
                     </div>
-                    <p className="text-sm text-slate-600 font-medium">{comment.text}</p>
+                    <p className="text-sm text-slate-600 font-medium text-right">{comment.text}</p>
                   </div>
                   <img src={comment.teamLogo} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                 </div>
@@ -234,7 +248,7 @@ export default function App() {
       if (!res.error) {
         setUser({...user, ...profileData});
         setEditMode(false);
-        fetchData();
+        fetchData(true);
       }
     };
 
@@ -260,7 +274,7 @@ export default function App() {
             const base64 = await fileToBase64(file);
             await FirebaseService.addToGallery(user.id, base64);
           }
-          fetchData();
+          await fetchData(true);
         } catch (err) {
           console.error("Gallery upload error:", err);
         } finally {
@@ -281,7 +295,7 @@ export default function App() {
           imageUrl: imgUrl
         });
         setCurrentView('hub');
-        fetchData();
+        await fetchData(true);
       } finally {
         setIsSaving(false);
       }
@@ -339,7 +353,7 @@ export default function App() {
               </div>
 
               <div className="bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 shadow-sm text-right">
-                <h3 className="font-black text-2xl mb-8 text-slate-800 border-b pb-6">بيانات النادي</h3>
+                <h3 className="font-black text-2xl mb-8 text-slate-800 border-b pb-6 text-right">بيانات النادي</h3>
                 {editMode ? (
                   <div className="space-y-6">
                     <input value={profileData.team_name} onChange={e => setProfileData({...profileData, team_name: e.target.value})} className="w-full p-5 bg-white border border-slate-200 rounded-[1.5rem] outline-none font-bold text-right" placeholder="اسم الفريق" />
@@ -354,7 +368,7 @@ export default function App() {
                   <div className="space-y-8">
                     <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100"><span className="text-xl font-black text-slate-800">{user.players_count || 0} لاعب</span><Users className="w-7 h-7 text-blue-600" /></div>
                     <div className="flex items-center justify-between p-6 bg-white rounded-3xl border border-slate-100"><span className="text-xl font-black text-slate-800">{user.municipality || user.region}</span><MapPin className="w-7 h-7 text-blue-600" /></div>
-                    <p className="text-slate-600 font-semibold italic text-lg pr-4 border-r-4 border-blue-500/20">"{user.bio || 'لا يوجد وصف متاح حالياً.'}"</p>
+                    <p className="text-slate-600 font-semibold italic text-lg pr-4 border-r-4 border-blue-500/20 text-right">"{user.bio || 'لا يوجد وصف متاح حالياً.'}"</p>
                   </div>
                 )}
               </div>
@@ -362,7 +376,7 @@ export default function App() {
 
             <div className="lg:col-span-2 space-y-12">
               <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 text-right">
-                <div className="order-2 md:order-1">
+                <div className="order-2 md:order-1 text-right">
                   <div className="flex items-center gap-4 mb-2 justify-end">
                     <h3 className="text-4xl font-black text-slate-900 italic tracking-tighter">معرض الفريق</h3>
                     <ImageIcon className="text-blue-600 w-10 h-10" />
@@ -418,7 +432,11 @@ export default function App() {
         });
         setNewPostContent('');
         setNewPostImage('');
-        fetchData();
+        // نستخدم التحديث الصامت هنا لضمان سلاسة الواجهة
+        await fetchData(true);
+      } catch (err) {
+        console.error("Error posting:", err);
+        alert("حدث خطأ أثناء النشر، يرجى المحاولة لاحقاً.");
       } finally {
         setIsPosting(false);
       }
@@ -494,9 +512,17 @@ export default function App() {
           </div>
         )}
 
+        {isRefreshing && (
+          <div className="flex justify-center mb-8">
+            <div className="bg-blue-50 text-blue-600 px-6 py-2 rounded-full flex items-center gap-3 font-black text-sm animate-pulse border border-blue-100">
+              <Loader2 className="w-4 h-4 animate-spin" /> جاري تحديث الملتقى...
+            </div>
+          </div>
+        )}
+
         <div className="space-y-12 pb-24">
           {posts.map(post => (
-            <PostCard key={post.id} post={post} currentUser={user} onRefresh={fetchData} />
+            <PostCard key={post.id} post={post} currentUser={user} onRefresh={() => fetchData(true)} />
           ))}
           {posts.length === 0 && (
             <div className="py-32 text-center text-slate-300 font-black text-2xl border-4 border-dashed rounded-[4rem] bg-slate-50">
@@ -510,7 +536,11 @@ export default function App() {
   };
 
   const renderContent = () => {
-    if (isLoading) return <div className="h-[70vh] flex flex-col items-center justify-center gap-4"><Loader2 className="w-16 h-16 animate-spin text-blue-600 opacity-20" /><p className="text-slate-400 font-black animate-pulse">جاري المزامنة مع السحاب...</p></div>;
+    if (isLoading) return <div className="h-[70vh] flex flex-col items-center justify-center gap-4 text-center">
+      <Loader2 className="w-16 h-16 animate-spin text-blue-600 opacity-20" />
+      <p className="text-slate-400 font-black animate-pulse">جاري المزامنة مع السحاب...</p>
+    </div>;
+    
     if (permissionError) return <PermissionAlert />;
 
     switch (currentView) {
@@ -545,7 +575,7 @@ export default function App() {
               const target = e.target as any;
               const { data, error } = await FirebaseService.loginTeam(target[0].value, target[1].value);
               if (error) alert(error);
-              else { setUser(data); setCurrentView('profile'); }
+              else { setUser(data); setCurrentView('profile'); fetchData(true); }
             }} className="space-y-5">
               <input type="email" required placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold text-right" />
               <input type="password" required placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-4 ring-blue-500/10 focus:border-blue-500 font-bold text-right" />
@@ -569,7 +599,7 @@ export default function App() {
                 region: target[4].value
               });
               if (res.error) alert(res.error);
-              else { alert('تم التسجيل بنجاح!'); setCurrentView('login'); fetchData(); }
+              else { alert('تم التسجيل بنجاح!'); setCurrentView('login'); fetchData(true); }
             }} className="space-y-4">
               <input required placeholder="اسم الفريق" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
               <input required placeholder="اسم المدرب" className="w-full p-5 bg-slate-50 border-slate-200 rounded-2xl font-bold text-right" />
@@ -587,8 +617,8 @@ export default function App() {
              <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
              <div className="relative z-10 max-w-5xl mx-auto">
                <div className="inline-block px-6 py-2 bg-blue-600/20 backdrop-blur-md rounded-full text-blue-400 font-black text-xs uppercase tracking-widest mb-8 border border-blue-600/30">الموسم الرياضي الجديد 2024</div>
-               <h1 className="text-7xl md:text-9xl font-black mb-10 leading-tight tracking-tighter italic">بوابة البطولة</h1>
-               <p className="text-slate-400 text-2xl mb-16 font-light max-w-3xl mx-auto leading-relaxed italic">مجتمع رياضي رقمي متكامل لإدارة الفرق، النتائج، والبث المباشر بأعلى التقنيات.</p>
+               <h1 className="text-7xl md:text-9xl font-black mb-10 leading-tight tracking-tighter italic text-center">بوابة البطولة</h1>
+               <p className="text-slate-400 text-2xl mb-16 font-light max-w-3xl mx-auto leading-relaxed italic text-center">مجتمع رياضي رقمي متكامل لإدارة الفرق، النتائج، والبث المباشر بأعلى التقنيات.</p>
                <div className="flex flex-wrap justify-center gap-6">
                  <button onClick={() => setCurrentView('register')} className="px-14 py-6 bg-blue-600 rounded-[2.5rem] font-black text-xl shadow-2xl shadow-blue-600/20 hover:scale-105 transition-transform active:scale-95">سجل فريقك مجاناً</button>
                  <button onClick={() => setCurrentView('hub')} className="px-14 py-6 bg-white/10 rounded-[2.5rem] font-black text-xl border border-white/20 hover:bg-white/20 transition-all backdrop-blur-md">ملتقى الفرق</button>
@@ -660,23 +690,23 @@ export default function App() {
 
               {isUserMenuOpen && (
                 <div className="absolute top-full left-0 mt-3 w-72 bg-white rounded-[2rem] shadow-2xl border border-slate-100 p-3 z-[100] animate-in slide-in-from-top-2 duration-200 text-right">
-                  <div className="p-4 mb-2 border-b border-slate-50">
+                  <div className="p-4 mb-2 border-b border-slate-50 text-right">
                     <p className="text-sm font-black text-slate-900">{user.team_name}</p>
                     <p className="text-[10px] text-slate-400 font-bold">{user.contact_email}</p>
                   </div>
                   <div className="space-y-1">
-                    <button onClick={() => {setCurrentView('profile'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                    <button onClick={() => {setCurrentView('profile'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right">
                       بروفايل النادي <User className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
-                    <button onClick={() => {setCurrentView('hub'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                    <button onClick={() => {setCurrentView('hub'); setIsUserMenuOpen(false);}} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right">
                       مشاركاتي <LayoutGrid className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
-                    <button className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold">
+                    <button className="w-full flex items-center justify-end gap-3 p-4 hover:bg-slate-50 rounded-2xl transition-colors text-slate-600 hover:text-blue-600 group text-sm font-bold text-right">
                       الإعدادات <Settings className="w-5 h-5 opacity-50 group-hover:opacity-100" />
                     </button>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-50">
-                    <button onClick={() => { setUser(null); setCurrentView('home'); setIsUserMenuOpen(false); }} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-500 group text-sm font-bold">
+                    <button onClick={() => { setUser(null); setCurrentView('home'); setIsUserMenuOpen(false); }} className="w-full flex items-center justify-end gap-3 p-4 hover:bg-red-50 rounded-2xl transition-colors text-red-500 group text-sm font-bold text-right">
                       تسجيل الخروج <LogOut className="w-5 h-5" />
                     </button>
                   </div>
@@ -697,8 +727,8 @@ export default function App() {
       <footer className="bg-slate-900 text-slate-500 py-32 text-center relative overflow-hidden">
         <div className="max-w-4xl mx-auto px-6 relative z-10">
           <Trophy className="w-20 h-20 text-blue-600 mx-auto mb-10 opacity-20" />
-          <h3 className="text-white font-black text-2xl mb-4 italic tracking-tight">نظام إدارة البطولة الذكي</h3>
-          <p className="text-sm opacity-60 font-bold tracking-widest uppercase mb-12">مدعوم بتقنية Google Firebase &bull; جميع الحقوق محفوظة 2024</p>
+          <h3 className="text-white font-black text-2xl mb-4 italic tracking-tight text-center">نظام إدارة البطولة الذكي</h3>
+          <p className="text-sm opacity-60 font-bold tracking-widest uppercase mb-12 text-center">مدعوم بتقنية Google Firebase &bull; جميع الحقوق محفوظة 2024</p>
           <div className="flex justify-center gap-8 text-[11px] font-black uppercase tracking-widest">
             <a href="#" className="hover:text-white transition-colors">عن المنصة</a>
             <a href="#" className="hover:text-white transition-colors">قوانين المشاركة</a>
