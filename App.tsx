@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from './services/firebase';
 import { TeamRegistration, LiveChannel, Post, Comment } from './types';
@@ -58,6 +57,38 @@ export default function App() {
   const [permissionError, setPermissionError] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // دالة ضغط الصور لضمان عدم تجاوز حجم مستند Firestore (1MB limit)
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        // نستخدم جودة 0.6 (60%) لضمان حجم ملف صغير جداً وسرعة في الرفع
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      };
+    });
+  };
 
   const fetchData = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -187,14 +218,14 @@ export default function App() {
             <div className="mt-8 pt-8 border-t border-slate-50 space-y-6 animate-in fade-in slide-in-from-top-2">
               {post.comments?.map((comment) => (
                 <div key={comment.id} className="flex gap-3 text-right">
-                  <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="flex-1 bg-slate-50 p-4 rounded-2xl border border-slate-100 text-right">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] text-slate-400 font-bold uppercase">
                         {formatTimestamp(comment.created_at)}
                       </span>
                       <p className="font-black text-sm text-slate-900">{comment.teamName}</p>
                     </div>
-                    <p className="text-sm text-slate-600 font-medium text-right">{comment.text}</p>
+                    <p className="text-sm text-slate-600 font-medium">{comment.text}</p>
                   </div>
                   <img src={comment.teamLogo} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
                 </div>
@@ -237,16 +268,22 @@ export default function App() {
     const handleUpdate = async () => {
       if (!user.id) return;
       setIsSaving(true);
+      
+      let finalLogo = profileData.logo_url;
+      if (finalLogo && finalLogo.startsWith('data:image')) {
+        finalLogo = await compressImage(finalLogo, 300, 300);
+      }
+
       const res = await FirebaseService.updateTeamProfile(user.id, {
         team_name: profileData.team_name,
         municipality: profileData.municipality,
         players_count: profileData.players_count,
         bio: profileData.bio,
-        logo_url: profileData.logo_url
+        logo_url: finalLogo
       });
       setIsSaving(false);
       if (!res.error) {
-        setUser({...user, ...profileData});
+        setUser({...user, ...profileData, logo_url: finalLogo});
         setEditMode(false);
         fetchData(true);
       }
@@ -257,7 +294,8 @@ export default function App() {
       if (file) {
         try {
           const base64 = await fileToBase64(file);
-          setProfileData(prev => ({ ...prev, logo_url: base64 }));
+          const compressed = await compressImage(base64, 300, 300);
+          setProfileData(prev => ({ ...prev, logo_url: compressed }));
         } catch (err) {
           console.error("Logo upload error:", err);
         }
@@ -272,11 +310,13 @@ export default function App() {
           const fileArray = Array.from(files) as File[];
           for (const file of fileArray) {
             const base64 = await fileToBase64(file);
-            await FirebaseService.addToGallery(user.id, base64);
+            const compressed = await compressImage(base64);
+            await FirebaseService.addToGallery(user.id, compressed);
           }
           await fetchData(true);
         } catch (err) {
           console.error("Gallery upload error:", err);
+          alert("حدث خطأ أثناء رفع الصور، يرجى المحاولة بصورة أخرى.");
         } finally {
           setIsSaving(false);
         }
@@ -432,11 +472,10 @@ export default function App() {
         });
         setNewPostContent('');
         setNewPostImage('');
-        // نستخدم التحديث الصامت هنا لضمان سلاسة الواجهة
         await fetchData(true);
       } catch (err) {
         console.error("Error posting:", err);
-        alert("حدث خطأ أثناء النشر، يرجى المحاولة لاحقاً.");
+        alert("حدث خطأ أثناء النشر، ربما حجم الصورة كبير جداً. يرجى المحاولة مرة أخرى.");
       } finally {
         setIsPosting(false);
       }
@@ -447,7 +486,9 @@ export default function App() {
       if (file) {
         try {
           const base64 = await fileToBase64(file);
-          setNewPostImage(base64);
+          // ضغط الصورة فور اختيارها لضمان سلاسة العملية
+          const compressed = await compressImage(base64);
+          setNewPostImage(compressed);
         } catch (err) {
           console.error("Post image upload error:", err);
         }
@@ -587,7 +628,7 @@ export default function App() {
       case 'register': return (
         <div className="max-w-md mx-auto py-24 px-6">
           <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100 text-center animate-in zoom-in duration-500">
-            <h3 className="text-3xl font-black mb-10 text-slate-900 italic tracking-tight">تسجيل فريق جديد</h3>
+            <h3 className="text-3xl font-black mb-10 text-slate-900 italic tracking-tight text-center">تسجيل فريق جديد</h3>
             <form onSubmit={async (e) => {
               e.preventDefault();
               const target = e.target as any;
