@@ -5,6 +5,7 @@ import {
   collection, 
   addDoc, 
   getDocs, 
+  getDoc,
   query, 
   where, 
   orderBy, 
@@ -50,6 +51,20 @@ export const FirebaseService = {
     } catch (error: any) {
       if (error.code === 'permission-denied') throw new Error("PERMISSION_DENIED");
       return [];
+    }
+  },
+
+  getTeamById: async (id: string): Promise<TeamRegistration | null> => {
+    try {
+      const docRef = doc(db, "teams", id);
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return { id: docSnap.id, ...docSnap.data() } as TeamRegistration;
+      }
+      return null;
+    } catch (error) {
+      console.error("Error getting team:", error);
+      return null;
     }
   },
 
