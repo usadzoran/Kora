@@ -1,18 +1,16 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SupabaseService } from './services/supabase';
 import { TeamRegistration, LiveChannel } from './types';
 import { 
-  Trophy, User, Mail, MapPin, Shield, CheckCircle2, AlertCircle, Loader2,
-  Clock, ArrowRight, LogIn, LogOut, Edit2, Play, Radio, Plus, Trash2, Eye, 
-  EyeOff, Users, Save, Award, Target, Camera, Image as ImageIcon, Share2, Lock, ExternalLink
+  Trophy, User, Mail, MapPin, Shield, CheckCircle2, Loader2,
+  ArrowRight, LogIn, LogOut, Radio, Lock, ExternalLink
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'admin' | 'login' | 'register' | 'public-team';
 
-// المكونات الفرعية لضمان تنظيم الكود ومنع الانهيار
 const PublicTeamView: React.FC<{ team: TeamRegistration }> = ({ team }) => (
-  <div className="max-w-5xl mx-auto py-12 px-6">
+  <div className="max-w-5xl mx-auto py-12 px-6 animate-in fade-in duration-700">
     <div className="relative mb-12">
       <div className="h-48 w-full bg-slate-900 rounded-[2.5rem] shadow-xl relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -36,37 +34,7 @@ const PublicTeamView: React.FC<{ team: TeamRegistration }> = ({ team }) => (
       </div>
       <div className="lg:col-span-2 bg-white p-8 rounded-[2rem] border shadow-sm">
         <h3 className="font-bold mb-4">نبذة الفريق</h3>
-        <p className="text-slate-600 leading-relaxed">{team.bio || "لا توجد نبذة."}</p>
-      </div>
-    </div>
-  </div>
-);
-
-const AdminDashboard: React.FC<{ teams: TeamRegistration[], channels: LiveChannel[] }> = ({ teams, channels }) => (
-  <div className="max-w-7xl mx-auto py-10 px-6">
-    <h1 className="text-3xl font-black mb-10">لوحة الإدارة</h1>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <div className="bg-white rounded-[2rem] border overflow-hidden">
-        <div className="p-6 border-b font-bold">إدارة القنوات</div>
-        <div className="divide-y">
-          {channels.length > 0 ? channels.map(ch => (
-            <div key={ch.id} className="p-4 flex items-center justify-between">
-              <span className="font-bold">{ch.name}</span>
-              <span className={`px-2 py-1 rounded-full text-[10px] ${ch.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{ch.is_active ? 'نشط' : 'متوقف'}</span>
-            </div>
-          )) : <p className="p-10 text-center text-slate-400">لا توجد قنوات.</p>}
-        </div>
-      </div>
-      <div className="bg-white rounded-[2rem] border p-6">
-        <h2 className="font-bold mb-6">الفرق المسجلة ({teams.length})</h2>
-        <div className="space-y-3">
-          {teams.map(t => (
-            <div key={t.id} className="p-3 bg-slate-50 rounded-xl flex items-center justify-between">
-              <span className="text-sm font-bold">{t.team_name}</span>
-              <span className="text-[10px] text-slate-400">{t.region}</span>
-            </div>
-          ))}
-        </div>
+        <p className="text-slate-600 leading-relaxed">{team.bio || "لا توجد نبذة تعريفية متوفرة لهذا الفريق حالياً."}</p>
       </div>
     </div>
   </div>
@@ -82,6 +50,7 @@ export default function App() {
 
   const checkHash = async () => {
     const hash = window.location.hash;
+    console.log("Current Hash:", hash);
     if (hash === '#admin-portal') {
       setCurrentView('login');
     } else if (hash.startsWith('#team-')) {
@@ -97,12 +66,14 @@ export default function App() {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        console.log("Fetching initial data...");
         const [channels, teams] = await Promise.all([
           SupabaseService.getLiveChannels(),
           SupabaseService.getAllTeams()
         ]);
         setLiveChannels(channels || []);
         setAllTeams(teams || []);
+        console.log("Data loaded:", { channels: channels?.length, teams: teams?.length });
       } catch (err) {
         console.error("Initial load error:", err);
       } finally {
@@ -115,61 +86,87 @@ export default function App() {
     return () => window.removeEventListener('hashchange', checkHash);
   }, []);
 
-  const isAdmin = user?.contact_email === 'admin@portal.com';
-
   const renderContent = () => {
-    if (isLoading) return <div className="h-[60vh] flex items-center justify-center"><Loader2 className="w-10 h-10 animate-spin text-blue-600" /></div>;
+    if (isLoading) {
+      return (
+        <div className="h-[70vh] flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+          <p className="text-slate-400 font-bold animate-pulse">جاري تحميل بوابة البطولة...</p>
+        </div>
+      );
+    }
 
     switch (currentView) {
-      case 'admin': return <AdminDashboard teams={allTeams} channels={liveChannels} />;
-      case 'public-team': return publicTeam ? <PublicTeamView team={publicTeam} /> : <div className="p-20 text-center text-slate-400">الفريق غير موجود.</div>;
+      case 'public-team': return publicTeam ? <PublicTeamView team={publicTeam} /> : <div className="p-20 text-center">الفريق غير موجود.</div>;
       case 'live': return (
         <div className="max-w-7xl mx-auto py-12 px-6">
-          <h2 className="text-3xl font-black mb-10 flex items-center gap-2"><Radio className="text-red-600" /> البث المباشر</h2>
+          <h2 className="text-3xl font-black mb-10 flex items-center gap-2"><Radio className="text-red-600" /> قنوات البث المباشر</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {liveChannels.map(ch => (
-              <div key={ch.id} className="bg-white rounded-2xl border p-4 shadow-sm group">
-                <img src={ch.thumbnail_url} className="h-40 w-full object-cover rounded-xl mb-4" />
-                <h4 className="font-bold">{ch.name}</h4>
-                <button onClick={() => window.open(ch.stream_url, '_blank')} className="w-full mt-4 py-2 bg-slate-50 border rounded-lg text-xs font-bold hover:bg-red-50 hover:text-red-600 transition-colors">مشاهدة</button>
+            {liveChannels.length > 0 ? liveChannels.map(ch => (
+              <div key={ch.id} className="bg-white rounded-3xl border p-5 shadow-sm hover:shadow-xl transition-all group">
+                <div className="h-44 w-full bg-slate-100 rounded-2xl mb-5 overflow-hidden relative">
+                  <img src={ch.thumbnail_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                  <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full animate-pulse">LIVE</div>
+                </div>
+                <h4 className="font-bold text-lg mb-4">{ch.name}</h4>
+                <button onClick={() => window.open(ch.stream_url, '_blank')} className="w-full py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-blue-600 transition-colors flex items-center justify-center gap-2">شاهد الآن <ExternalLink className="w-4 h-4" /></button>
               </div>
-            ))}
+            )) : <p className="col-span-full text-center py-20 text-slate-400">لا توجد بثوث مباشرة حالياً.</p>}
           </div>
         </div>
       );
       case 'login': return (
         <div className="max-w-md mx-auto py-24 px-6">
           <div className="bg-white rounded-[2.5rem] p-10 shadow-2xl border text-center">
-            <h3 className="text-2xl font-black mb-8">تسجيل الدخول</h3>
-            <button onClick={() => { setUser({ team_name: 'فريق تجريبي', coach_name: 'مدرب', contact_email: 'test@test.com', region: 'الدوحة' } as any); setCurrentView('home'); }} className="w-full py-4 bg-blue-600 text-white font-bold rounded-2xl mb-4">دخول تجريبي (للمعاينة)</button>
-            <button onClick={() => setCurrentView('home')} className="text-slate-400 text-sm underline">رجوع للرئيسية</button>
+            <Trophy className="w-16 h-16 text-blue-600 mx-auto mb-6" />
+            <h3 className="text-2xl font-black mb-4">تسجيل الدخول</h3>
+            <p className="text-slate-400 text-sm mb-8">يرجى استخدام حساب المدرب أو الأدمن</p>
+            <div className="space-y-4">
+              <input placeholder="البريد الإلكتروني" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-blue-500" />
+              <input type="password" placeholder="كلمة المرور" className="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:border-blue-500" />
+              <button className="w-full py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg hover:bg-blue-700">دخول</button>
+            </div>
+            <button onClick={() => setCurrentView('home')} className="mt-6 text-slate-400 text-xs underline">العودة للرئيسية</button>
           </div>
         </div>
       );
       default: return (
         <>
-          <section className="bg-slate-900 py-32 px-6 md:px-12 text-center text-white relative overflow-hidden">
-             <div className="relative z-10">
-               <h1 className="text-5xl md:text-8xl font-black mb-6">بوابة البطولة</h1>
-               <p className="text-slate-400 text-xl max-w-2xl mx-auto mb-12">سجل، تابع، واحتفل بكل لحظة رياضية.</p>
-               <div className="flex justify-center gap-4">
-                 <button onClick={() => setCurrentView('login')} className="px-10 py-5 bg-blue-600 rounded-2xl font-black shadow-xl">سجل فريقك</button>
-                 <button onClick={() => setCurrentView('live')} className="px-10 py-5 bg-white/10 rounded-2xl font-black border border-white/20">شاهد البث</button>
+          <section className="bg-slate-900 pt-24 pb-32 px-6 md:px-12 text-center text-white relative overflow-hidden">
+             <div className="relative z-10 max-w-4xl mx-auto">
+               <span className="bg-blue-600 text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-widest mb-8 inline-block">المنصة الرياضية المتكاملة</span>
+               <h1 className="text-5xl md:text-8xl font-black mb-8 leading-tight">بوابة البطولة</h1>
+               <p className="text-slate-400 text-xl mb-12 leading-relaxed">سجل فريقك، تابع إحصائياتك، وشاهد البث المباشر لأهم المباريات في مكان واحد وباحترافية عالية.</p>
+               <div className="flex flex-wrap justify-center gap-4">
+                 <button onClick={() => setCurrentView('login')} className="px-10 py-5 bg-blue-600 rounded-2xl font-black text-lg shadow-2xl hover:scale-105 transition-transform">سجل فريقك الآن</button>
+                 <button onClick={() => setCurrentView('live')} className="px-10 py-5 bg-white/10 rounded-2xl font-black text-lg border border-white/20 hover:bg-white/20 backdrop-blur-md transition-all">مشاهدة البث</button>
                </div>
              </div>
-             <Trophy className="absolute bottom-0 right-0 w-96 h-96 text-white/5 -mb-20 -mr-20" />
+             <Trophy className="absolute -bottom-20 -right-20 w-[400px] h-[400px] text-white/5 rotate-12" />
+             <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_left,rgba(37,99,235,0.1),transparent)]"></div>
           </section>
+          
           <section className="py-24 px-6 md:px-12 bg-white">
             <div className="max-w-7xl mx-auto">
-              <h2 className="text-3xl font-black mb-12">الفرق المشاركة</h2>
+              <div className="flex items-center justify-between mb-16">
+                <h2 className="text-4xl font-black">الفرق المشاركة</h2>
+                <div className="h-1 flex-1 mx-8 bg-slate-50 rounded-full hidden md:block"></div>
+              </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8">
                 {allTeams.length > 0 ? allTeams.map(team => (
-                  <button key={team.id} onClick={() => { setPublicTeam(team); window.location.hash = `team-${team.id}`; }} className="text-center group">
-                    <img src={team.logo_url} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white shadow-xl group-hover:scale-110 transition-transform" />
-                    <p className="font-bold text-slate-900">{team.team_name}</p>
-                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{team.region}</p>
+                  <button key={team.id} onClick={() => { setPublicTeam(team); window.location.hash = `team-${team.id}`; }} className="group text-center">
+                    <div className="relative mb-6 inline-block">
+                       <img src={team.logo_url} className="w-24 h-24 md:w-32 md:h-32 rounded-full mx-auto border-4 border-white shadow-xl group-hover:shadow-blue-200 group-hover:scale-110 transition-all duration-500 bg-white object-cover" />
+                       <div className="absolute inset-0 rounded-full bg-blue-600/0 group-hover:bg-blue-600/10 transition-colors"></div>
+                    </div>
+                    <p className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{team.team_name}</p>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{team.region}</p>
                   </button>
-                )) : <p className="col-span-full text-center text-slate-400">لا توجد فرق مسجلة حالياً.</p>}
+                )) : (
+                  <div className="col-span-full py-16 text-center bg-slate-50 rounded-[3rem] border border-dashed">
+                    <p className="text-slate-400 font-bold">لا توجد فرق مسجلة حالياً. كن أول من يسجل!</p>
+                  </div>
+                )}
               </div>
             </div>
           </section>
@@ -181,29 +178,33 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans" dir="rtl">
       <nav className="bg-white/90 backdrop-blur-md border-b py-4 px-6 md:px-12 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-2 font-black text-xl cursor-pointer" onClick={() => { window.location.hash = ''; setCurrentView('home'); }}>
-          <Trophy className="w-8 h-8 text-blue-600" /> <span>بوابة البطولة</span>
+        <div className="flex items-center gap-3 font-black text-xl cursor-pointer" onClick={() => { window.location.hash = ''; setCurrentView('home'); }}>
+          <div className="bg-blue-600 p-2 rounded-xl shadow-lg"><Trophy className="w-6 h-6 text-white" /></div>
+          <span className="tracking-tight">بوابة البطولة</span>
         </div>
-        <div className="hidden md:flex gap-8 text-[11px] font-black uppercase tracking-widest text-slate-400">
-           <button onClick={() => setCurrentView('home')} className={currentView === 'home' ? 'text-blue-600' : ''}>الرئيسية</button>
-           <button onClick={() => setCurrentView('live')} className={currentView === 'live' ? 'text-red-600' : ''}>البث المباشر</button>
-           {user && <button onClick={() => setCurrentView('profile')} className="text-slate-900">فريقي</button>}
-           {isAdmin && <button onClick={() => setCurrentView('admin')} className="text-blue-600">الإدارة</button>}
+        <div className="hidden md:flex gap-10 text-[11px] font-black uppercase tracking-widest text-slate-400">
+           <button onClick={() => { window.location.hash = ''; setCurrentView('home'); }} className={currentView === 'home' ? 'text-blue-600' : 'hover:text-slate-900 transition-colors'}>الرئيسية</button>
+           <button onClick={() => setCurrentView('live')} className={currentView === 'live' ? 'text-red-600' : 'hover:text-slate-900 transition-colors'}>البث المباشر</button>
+           {user && <button onClick={() => setCurrentView('profile')} className="text-slate-900">ملف فريقي</button>}
         </div>
         <div>
           {user ? (
-            <button onClick={() => setUser(null)} className="text-red-500 font-bold text-xs">خروج</button>
+            <div className="flex items-center gap-4">
+              <span className="text-[10px] font-black text-slate-400 hidden lg:block">{user.team_name}</span>
+              <button onClick={() => setUser(null)} className="p-2.5 text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors"><LogOut className="w-5 h-5" /></button>
+            </div>
           ) : (
-            <button onClick={() => setCurrentView('login')} className="px-6 py-2.5 bg-slate-900 text-white text-[11px] font-black rounded-xl">دخول</button>
+            <button onClick={() => setCurrentView('login')} className="px-7 py-3 bg-slate-900 text-white text-[11px] font-black rounded-2xl hover:bg-blue-600 transition-all shadow-xl">تسجيل الدخول</button>
           )}
         </div>
       </nav>
-      <main className="min-h-[70vh]">{renderContent()}</main>
-      <footer className="bg-slate-900 text-slate-500 py-20 text-center">
+      <main className="min-h-[75vh]">{renderContent()}</main>
+      <footer className="bg-slate-900 text-slate-500 py-24 text-center">
         <div className="max-w-4xl mx-auto px-6">
-          <Trophy className="w-12 h-12 text-blue-600 mx-auto mb-8" />
-          <p className="text-sm leading-relaxed max-w-lg mx-auto mb-8">المنصة المتكاملة لتنظيم ومتابعة البطولات الرياضية الاحترافية.</p>
-          <div className="pt-8 border-t border-slate-800 text-[10px] uppercase font-bold tracking-widest">&copy; 2024 بوابة البطولة. جميع الحقوق محفوظة.</div>
+          <Trophy className="w-14 h-14 text-blue-600 mx-auto mb-10" />
+          <h4 className="text-white font-black text-xl mb-6 tracking-tight">بوابة البطولة الرقمية</h4>
+          <p className="text-sm leading-relaxed max-w-lg mx-auto mb-12 opacity-80 font-medium">المنصة الأولى والوحيدة المتخصصة في إدارة وتغطية البطولات الرياضية بأعلى معايير الجودة والاحترافية.</p>
+          <div className="pt-10 border-t border-white/5 text-[10px] uppercase font-black tracking-[0.2em]">&copy; 2024 جميع الحقوق محفوظة لـ بوابة البطولة الرياضية</div>
         </div>
       </footer>
     </div>
