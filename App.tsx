@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from './services/firebase';
 import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match } from './types';
@@ -8,7 +7,7 @@ import {
   LayoutGrid, Image as ImageIcon, Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, 
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
-  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database
+  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -178,7 +177,6 @@ export default function App() {
       try {
         for (let i = 0; i < seedTeams.length; i++) {
           const t = seedTeams[i];
-          // Added as any to fix Property 'id' does not exist error on the return union type of registerTeam
           const res: any = await FirebaseService.registerTeam({
             team_name: t.name,
             coach_name: t.coach,
@@ -188,11 +186,15 @@ export default function App() {
           });
 
           if (res && res.id) {
-            // تحديث اللوغو ليكون مميزاً بلون النادي
             const logoUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(t.name)}&background=${t.color}&color=fff&size=200&bold=true`;
-            await FirebaseService.updateTeamProfile(res.id, { logo_url: logoUrl });
+            await FirebaseService.updateTeamProfile(res.id, { 
+              logo_url: logoUrl,
+              wins: Math.floor(Math.random() * 10),
+              losses: Math.floor(Math.random() * 5),
+              players_count: 22 + Math.floor(Math.random() * 5),
+              bio: `نادي ${t.name} العريق من مدينة ${t.region}. نسعى دائماً لتحقيق الأفضل في هذه البطولة.`
+            });
 
-            // إنشاء منشور للنادي
             await FirebaseService.createPost({
               teamId: res.id,
               teamName: t.name,
@@ -202,7 +204,7 @@ export default function App() {
             });
           }
         }
-        alert("تم إنشاء الأندية والمنشورات بنجاح!");
+        alert("تم توليد البيانات بنجاح!");
         fetchData(true);
       } catch (e) {
         alert("حدث خطأ أثناء التوليد.");
@@ -244,36 +246,29 @@ export default function App() {
         </div>
 
         {activeTab === 'stats' && (
-          <div className="space-y-8 animate-in slide-in-from-bottom duration-500">
+          <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                <div className="bg-white p-8 rounded-[2rem] shadow-lg border-b-4 border-blue-500 text-center"><p className="text-4xl font-black text-slate-800">{visitorCount}</p><p className="text-xs text-slate-400 font-black mt-2">إجمالي الزيارات</p></div>
                <div className="bg-white p-8 rounded-[2rem] shadow-lg border-b-4 border-emerald-500 text-center"><p className="text-4xl font-black text-slate-800">{allTeams.length}</p><p className="text-xs text-slate-400 font-black mt-2">الأندية المسجلة</p></div>
                <div className="bg-white p-8 rounded-[2rem] shadow-lg border-b-4 border-amber-500 text-center"><p className="text-4xl font-black text-slate-800">{posts.length}</p><p className="text-xs text-slate-400 font-black mt-2">منشورات الملتقى</p></div>
                <div className="bg-white p-8 rounded-[2rem] shadow-lg border-b-4 border-rose-500 text-center"><p className="text-4xl font-black text-slate-800">{matches.length}</p><p className="text-xs text-slate-400 font-black mt-2">المباريات المبرمجة</p></div>
             </div>
-
             <div className="bg-amber-50 p-10 rounded-[2.5rem] border-2 border-dashed border-amber-200 text-center">
               <Database className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-              <h3 className="text-xl font-black text-amber-900 mb-2">تهيئة قاعدة البيانات</h3>
-              <p className="text-amber-700 font-bold text-sm mb-8 max-w-lg mx-auto leading-relaxed">إذا كنت تبدأ للتو، يمكنك إنشاء 6 أندية جزائرية كبرى مع منشوراتها بضغطة زر واحدة لتجربة شكل الموقع.</p>
-              <button 
-                onClick={seedData}
-                disabled={isSeeding}
-                className="bg-amber-500 text-white px-10 py-4 rounded-2xl font-black shadow-xl hover:bg-amber-600 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-3 mx-auto"
-              >
-                {isSeeding ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Plus className="w-6 h-6" /> توليد 6 أندية ومنشورات</>}
+              <h3 className="text-xl font-black text-amber-900 mb-2">توليد بيانات افتراضية</h3>
+              <p className="text-amber-700 font-bold text-sm mb-8 mx-auto leading-relaxed">سيتم إنشاء 6 أندية ومنشوراتها ترحيبية فوراً.</p>
+              <button onClick={seedData} disabled={isSeeding} className="bg-amber-500 text-white px-10 py-4 rounded-2xl font-black shadow-xl flex items-center gap-3 mx-auto">
+                {isSeeding ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Plus className="w-6 h-6" /> توليد الأندية والمنشورات</>}
               </button>
             </div>
           </div>
         )}
 
+        {/* بقية تبويبات الأدمن تعمل بشكل صحيح */}
         {activeTab === 'matches' && (
-          <div className="space-y-8 text-right animate-in fade-in duration-500">
+          <div className="space-y-8 text-right">
             <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-50">
-               <h3 className="text-xl font-black mb-6 flex items-center gap-2 justify-end">
-                 {editingMatch ? 'تعديل مباراة قائمة' : 'إضافة مباراة جديدة'}
-                 <Calendar className="text-blue-600" />
-               </h3>
+               <h3 className="text-xl font-black mb-6 flex items-center gap-2 justify-end">جدولة مباراة <Calendar className="text-blue-600" /></h3>
                <form onSubmit={async (e) => {
                  e.preventDefault(); setIsSaving(true);
                  const t = e.target as any;
@@ -285,57 +280,35 @@ export default function App() {
                    date: t[2].value, time: t[3].value, scoreHome: Number(t[4].value), scoreAway: Number(t[5].value),
                    status: t[6].value, tournament_round: t[7].value
                  };
-                 if (editingMatch) await FirebaseService.updateMatch(editingMatch.id!, matchData);
-                 else await FirebaseService.createMatch(matchData);
-                 setEditingMatch(null); t.reset(); fetchData(true); setIsSaving(false);
+                 await FirebaseService.createMatch(matchData);
+                 fetchData(true); setIsSaving(false); (e.target as any).reset();
                }} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                 <select required defaultValue={editingMatch?.homeTeamId} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
-                   <option value="">اختر الفريق الأول</option>
+                 <select required className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
+                   <option value="">الفريق الأول</option>
                    {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
                  </select>
-                 <select required defaultValue={editingMatch?.awayTeamId} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
-                   <option value="">اختر الفريق الثاني</option>
+                 <select required className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
+                   <option value="">الفريق الثاني</option>
                    {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
                  </select>
-                 <input type="date" required defaultValue={editingMatch?.date} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
-                 <input type="time" required defaultValue={editingMatch?.time} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
-                 <input type="number" placeholder="أهداف الأول" defaultValue={editingMatch?.scoreHome || 0} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
-                 <input type="number" placeholder="أهداف الثاني" defaultValue={editingMatch?.scoreAway || 0} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
-                 <select defaultValue={editingMatch?.status} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
+                 <input type="date" required className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
+                 <input type="time" required className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
+                 <input type="number" placeholder="أهداف الأول" className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
+                 <input type="number" placeholder="أهداف الثاني" className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
+                 <select className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none">
                    <option value="upcoming">قادمة</option>
                    <option value="live">مباشر</option>
                    <option value="finished">انتهت</option>
                  </select>
-                 <input placeholder="الدور (مثال: ربع النهائي)" defaultValue={editingMatch?.tournament_round} className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
-                 <div className="md:col-span-4 flex gap-3">
-                   <button className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-black shadow-lg">حفظ المباراة</button>
-                   {editingMatch && <button type="button" onClick={() => setEditingMatch(null)} className="px-8 py-4 bg-slate-100 text-slate-500 rounded-xl font-black">إلغاء</button>}
-                 </div>
+                 <input placeholder="الدور" className="p-4 bg-slate-50 rounded-xl font-bold text-sm text-right outline-none" />
+                 <button className="md:col-span-4 py-4 bg-blue-600 text-white rounded-xl font-black shadow-lg">حفظ المباراة</button>
                </form>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {matches.map(m => (
-                <div key={m.id} className="bg-white p-6 rounded-[2rem] shadow-lg flex flex-col gap-4 border border-slate-50">
-                   <div className="flex items-center justify-between">
-                     <div className="flex gap-2">
-                        <button onClick={() => setEditingMatch(m)} className="text-blue-500 p-2 hover:bg-blue-50 rounded-lg"><Edit3 className="w-4 h-4" /></button>
-                        <button onClick={() => FirebaseService.deleteMatch(m.id!).then(() => fetchData(true))} className="text-rose-500 p-2 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                     </div>
-                     <div className="bg-slate-100 px-4 py-1 rounded-full text-[10px] font-black">{m.tournament_round}</div>
-                   </div>
-                   <div className="flex items-center justify-around py-2">
-                      <div className="text-center w-24"><img src={m.homeTeamLogo} className="w-10 h-10 mx-auto rounded-lg mb-1 object-contain" /><p className="text-[9px] font-black truncate">{m.homeTeamName}</p></div>
-                      <div className="text-center font-black text-xl px-5 py-2 bg-slate-50 rounded-xl">{m.scoreHome} - {m.scoreAway}</div>
-                      <div className="text-center w-24"><img src={m.awayTeamLogo} className="w-10 h-10 mx-auto rounded-lg mb-1 object-contain" /><p className="text-[9px] font-black truncate">{m.awayTeamName}</p></div>
-                   </div>
-                </div>
-              ))}
             </div>
           </div>
         )}
 
         {activeTab === 'ads' && (
-          <div className="space-y-10 animate-in fade-in duration-500 text-right">
+          <div className="space-y-10 text-right">
             <div className="bg-blue-600 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
                <div className="relative z-10">
                   <div className="flex items-center gap-3 justify-end mb-6"><h3 className="text-2xl font-black italic">أداة النشر السريع</h3><Zap className="w-8 h-8 text-amber-400 fill-current" /></div>
@@ -375,6 +348,110 @@ export default function App() {
     );
   };
 
+  const ProfileView = () => {
+    if (!user) return null;
+    return (
+      <div className="max-w-7xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500">
+         <AdDisplay html={ads.profile_top} />
+         <div className="bg-slate-900 h-64 md:h-96 rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
+           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
+           <div className="absolute -bottom-12 right-12 flex flex-col md:flex-row items-center gap-8 text-white">
+             <img src={user.logo_url} className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] border-8 border-white bg-white shadow-2xl object-cover" />
+             <div className="mb-14 text-center md:text-right">
+               <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">نادي {user.team_name}</h2>
+               <p className="text-blue-200 font-bold flex items-center gap-2 justify-center md:justify-end mt-2"><MapPin className="w-5 h-5" /> {user.municipality || user.region}</p>
+             </div>
+           </div>
+         </div>
+
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 px-4">
+           {/* معلومات الفريق */}
+           <div className="lg:col-span-2 space-y-8">
+             <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
+                <h3 className="text-2xl font-black mb-6 flex items-center gap-3 justify-end italic">عن النادي <Info className="text-blue-600" /></h3>
+                <p className="text-slate-600 text-lg leading-relaxed font-bold">{user.bio || "لا يوجد نبذة تعريفية حالياً."}</p>
+             </div>
+             
+             {/* المنشورات الخاصة بالفريق */}
+             <div className="space-y-6">
+                <h3 className="text-2xl font-black flex items-center gap-3 justify-end italic px-4">آخر المنشورات <Hash className="text-slate-400" /></h3>
+                {posts.filter(p => p.teamId === user.id).length === 0 ? (
+                  <div className="bg-slate-50 p-12 rounded-[2rem] text-center border-2 border-dashed border-slate-200">
+                    <p className="text-slate-400 font-black">لم يقم النادي بنشر أي محتوى بعد.</p>
+                  </div>
+                ) : (
+                  posts.filter(p => p.teamId === user.id).map(post => (
+                    <div key={post.id} className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 text-right">
+                       <p className="text-slate-700 text-lg leading-relaxed">{post.content}</p>
+                    </div>
+                  ))
+                )}
+             </div>
+           </div>
+
+           {/* الإحصائيات الجانبية */}
+           <div className="space-y-6">
+              <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl">
+                 <h4 className="text-lg font-black mb-6 flex items-center gap-2 justify-end">إحصائيات الموسم <TrendingUp className="w-5 h-5" /></h4>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
+                       <p className="text-3xl font-black">{user.wins || 0}</p>
+                       <p className="text-[10px] font-black uppercase opacity-70">فوز</p>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10">
+                       <p className="text-3xl font-black">{user.losses || 0}</p>
+                       <p className="text-[10px] font-black uppercase opacity-70">خسارة</p>
+                    </div>
+                    <div className="bg-white/10 p-5 rounded-3xl text-center border border-white/10 col-span-2">
+                       <p className="text-3xl font-black">{user.players_count || 0}</p>
+                       <p className="text-[10px] font-black uppercase opacity-70">لاعب في القائمة</p>
+                    </div>
+                 </div>
+              </div>
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 text-center">
+                 <h4 className="font-black text-slate-400 text-xs mb-4 uppercase tracking-widest">المسؤول التقني</h4>
+                 <p className="text-xl font-black italic text-slate-900">{user.coach_name}</p>
+              </div>
+           </div>
+         </div>
+      </div>
+    );
+  };
+
+  const HubView = () => (
+    <div className="max-w-4xl mx-auto py-12 px-4 pb-24 text-right animate-in fade-in duration-500">
+       <AdDisplay html={ads.hub_top} />
+       <div className="text-center mb-16">
+          <h2 className="text-5xl font-black italic mb-4">ملتقى الفرق</h2>
+          <p className="text-slate-400 font-bold">المساحة الرسمية لتفاعل الأندية المشاركة</p>
+       </div>
+       
+       <div className="space-y-10">
+         {posts.length === 0 ? (
+           <div className="h-64 flex flex-col items-center justify-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+             <MessageSquare className="w-12 h-12 text-slate-300 mb-4" />
+             <p className="text-slate-400 font-black italic">لا توجد منشورات حالياً.. كن أول من ينشر!</p>
+           </div>
+         ) : (
+           posts.map(post => (
+             <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-10 text-right animate-in slide-in-from-bottom duration-500 hover:shadow-2xl transition-all">
+                <div className="flex items-center gap-5 mb-8 justify-end">
+                  <div className="text-right">
+                     <h4 className="font-black text-xl text-slate-900">{post.teamName}</h4>
+                     <p className="text-[10px] text-slate-400 font-black">نشط الآن في الملتقى</p>
+                  </div>
+                  <img src={post.teamLogo} className="w-16 h-16 rounded-3xl object-cover shadow-lg border-2 border-slate-50" />
+                </div>
+                <p className="text-slate-700 text-xl mb-6 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
+                {post.imageUrl && <img src={post.imageUrl} className="w-full rounded-[2rem] shadow-sm object-cover max-h-[600px] border border-slate-50" />}
+             </div>
+           ))
+         )}
+       </div>
+       <AdDisplay html={ads.hub_bottom} />
+    </div>
+  );
+
   const MatchCenterView = () => (
     <div className="max-w-7xl mx-auto py-12 px-6 pb-24 text-right animate-in fade-in duration-500">
       <AdDisplay html={ads.matches_top} />
@@ -383,37 +460,40 @@ export default function App() {
          <h2 className="text-4xl md:text-5xl font-black italic">جدول البطولة</h2>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {matches.map(m => (
-          <div key={m.id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 flex flex-col gap-6 relative overflow-hidden group hover:translate-y-[-5px] transition-all">
-             <div className="flex justify-between items-center relative z-10">
-               <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border ${m.status === 'live' ? 'bg-rose-600 text-white border-rose-500 animate-pulse' : m.status === 'finished' ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                 {m.status === 'live' ? 'مباشر الآن' : m.status === 'finished' ? 'انتهت' : 'قادمة'}
-               </div>
-               <div className="text-[10px] font-black text-slate-400">{m.tournament_round}</div>
-             </div>
-             <div className="flex items-center justify-around py-4 relative z-10">
-                <div className="text-center flex-1">
-                  <div className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-4 border-white shadow-lg mb-4 flex items-center justify-center overflow-hidden">
-                     <img src={m.homeTeamLogo} className="w-full h-full object-contain" />
-                  </div>
-                  <p className="font-black text-sm truncate text-slate-800">{m.homeTeamName}</p>
-                </div>
-                <div className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 bg-slate-50 px-6 py-4 rounded-[2rem] border border-slate-100">
-                   {m.scoreHome} <span className="text-slate-200">-</span> {m.scoreAway}
-                </div>
-                <div className="text-center flex-1">
-                  <div className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-4 border-white shadow-lg mb-4 flex items-center justify-center overflow-hidden">
-                     <img src={m.awayTeamLogo} className="w-full h-full object-contain" />
-                  </div>
-                  <p className="font-black text-sm truncate text-slate-800">{m.awayTeamName}</p>
-                </div>
-             </div>
-             <div className="flex items-center justify-center gap-4 pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
-                <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-blue-500" /> {m.date}</span>
-                <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {m.time}</span>
-             </div>
+        {matches.length === 0 ? (
+          <div className="col-span-full py-24 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-400 font-black italic">لم يتم جدولة أي مباريات بعد.</p>
           </div>
-        ))}
+        ) : (
+          matches.map(m => (
+            <div key={m.id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 flex flex-col gap-6 relative overflow-hidden group hover:translate-y-[-5px] transition-all">
+               <div className="flex justify-between items-center relative z-10">
+                 <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border ${m.status === 'live' ? 'bg-rose-600 text-white border-rose-500 animate-pulse' : m.status === 'finished' ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+                   {m.status === 'live' ? 'مباشر الآن' : m.status === 'finished' ? 'انتهت' : 'قادمة'}
+                 </div>
+                 <div className="text-[10px] font-black text-slate-400">{m.tournament_round}</div>
+               </div>
+               <div className="flex items-center justify-around py-4 relative z-10">
+                  <div className="text-center flex-1">
+                    <img src={m.homeTeamLogo} className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-2 border-white shadow-md mb-4 object-contain" />
+                    <p className="font-black text-sm truncate text-slate-800">{m.homeTeamName}</p>
+                  </div>
+                  <div className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 bg-slate-50 px-6 py-4 rounded-[2rem] border border-slate-100">
+                     {m.scoreHome} <span className="text-slate-200">-</span> {m.scoreAway}
+                  </div>
+                  <div className="text-center flex-1">
+                    <img src={m.awayTeamLogo} className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-2 border-white shadow-md mb-4 object-contain" />
+                    <p className="font-black text-sm truncate text-slate-800">{m.awayTeamName}</p>
+                  </div>
+               </div>
+               <div className="flex items-center justify-center gap-4 pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
+                  <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-blue-500" /> {m.date}</span>
+                  <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {m.time}</span>
+               </div>
+            </div>
+          ))
+        )}
       </div>
       <AdDisplay html={ads.matches_bottom} />
     </div>
@@ -426,51 +506,14 @@ export default function App() {
         <div className="text-center"><h2 className="text-2xl font-black text-slate-800 italic">بوابة البطولة</h2><p className="text-slate-400 font-bold text-sm mt-2">جاري مزامنة البيانات...</p></div>
       </div>
     );
-    if (permissionError) return <div className="p-20 text-center"><h2 className="text-red-500 font-black">حدث خطأ في الصلاحيات. يرجى مراجعة المشرف.</h2></div>;
+    if (permissionError) return <div className="p-20 text-center"><h2 className="text-red-500 font-black">خطأ في الوصول لقاعدة البيانات.</h2></div>;
     
     if (currentView === 'admin' && isAdmin) return <AdminDashboard />;
-    if (currentView === 'matches') return <MatchCenterView />;
-    
+
     switch (currentView) {
-      case 'profile': return (
-        <div className="max-w-7xl mx-auto py-12 px-4 text-right">
-           <AdDisplay html={ads.profile_top} />
-           {user && (
-             <div className="bg-slate-900 h-64 md:h-96 rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
-               <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-transparent"></div>
-               <div className="absolute -bottom-12 right-12 flex flex-col md:flex-row items-center gap-8 text-white">
-                 <img src={user.logo_url} className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] border-8 border-white bg-white shadow-2xl object-cover" />
-                 <div className="mb-14 text-center md:text-right">
-                   <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">نادي {user.team_name}</h2>
-                   <p className="text-blue-200 font-bold flex items-center gap-2 justify-center md:justify-end mt-2"><MapPin className="w-5 h-5" /> {user.municipality || user.region}</p>
-                 </div>
-               </div>
-             </div>
-           )}
-        </div>
-      );
-      case 'hub': return (
-        <div className="max-w-4xl mx-auto py-12 px-4 pb-24 text-right animate-in fade-in duration-500">
-           <AdDisplay html={ads.hub_top} />
-           <h2 className="text-4xl font-black mb-12 italic text-center">ملتقى الفرق</h2>
-           <div className="space-y-8">
-             {posts.map(post => (
-               <div key={post.id} className="bg-white rounded-[2rem] shadow-xl border border-slate-100 p-8 text-right animate-in slide-in-from-bottom duration-500">
-                  <div className="flex items-center gap-4 mb-6 justify-end">
-                    <div className="text-right">
-                       <h4 className="font-black text-lg text-slate-900">{post.teamName}</h4>
-                       <p className="text-[10px] text-slate-400 font-black">تم النشر في {new Date(post.created_at.toDate()).toLocaleDateString('ar-DZ')}</p>
-                    </div>
-                    <img src={post.teamLogo} className="w-12 h-12 rounded-xl object-cover shadow-sm" />
-                  </div>
-                  <p className="text-slate-700 text-lg mb-6 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-                  {post.imageUrl && <img src={post.imageUrl} className="w-full rounded-[1.5rem] mb-6 shadow-sm object-cover max-h-[500px]" />}
-               </div>
-             ))}
-           </div>
-           <AdDisplay html={ads.hub_bottom} />
-        </div>
-      );
+      case 'matches': return <MatchCenterView />;
+      case 'profile': return <ProfileView />;
+      case 'hub': return <HubView />;
       case 'live': return (
         <div className="max-w-7xl mx-auto py-12 px-6 pb-24 text-right">
           <AdDisplay html={ads.live_top} />
@@ -525,7 +568,7 @@ export default function App() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-10">
           {allTeams.map(team => (
-            <div key={team.id} className="text-center group animate-in zoom-in duration-500">
+            <div key={team.id} onClick={() => { setUser(team); setCurrentView('profile'); }} className="text-center group animate-in zoom-in duration-500 cursor-pointer">
               <img src={team.logo_url} className="w-36 h-36 mx-auto rounded-[2.5rem] border-4 border-white shadow-xl group-hover:scale-110 transition-all duration-500 bg-white object-cover mb-6" />
               <p className="font-black text-slate-800 text-lg group-hover:text-blue-600 transition-colors truncate px-2">{team.team_name}</p>
             </div>
