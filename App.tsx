@@ -409,15 +409,7 @@ export default function App() {
                 <div className="space-y-6">
                   <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                     <div className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">المدرب الرئيسي</div>
-                    {isEditing ? (
-                      <input 
-                        value={editData.coach_name} 
-                        onChange={e => setEditData({...editData, coach_name: e.target.value})}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 font-black text-slate-800 outline-none"
-                      />
-                    ) : (
-                      <div className="text-xl font-black text-slate-900 italic">الكابتن {team.coach_name}</div>
-                    )}
+                    <div className="text-xl font-black text-slate-900 italic">الكابتن {team.coach_name}</div>
                   </div>
                   <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
                     <div className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">المنطقة</div>
@@ -434,6 +426,9 @@ export default function App() {
   const HubView = () => {
     const [newPostContent, setNewPostContent] = useState("");
     const [isPosting, setIsPosting] = useState(false);
+    const [activeCommentPostId, setActiveCommentPostId] = useState<string | null>(null);
+    const [newCommentText, setNewCommentText] = useState("");
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
     const handleCreatePost = async () => {
       if (!currentUser || !newPostContent.trim()) return;
@@ -452,6 +447,35 @@ export default function App() {
         alert("فشل نشر المنشور.");
       } finally {
         setIsPosting(false);
+      }
+    };
+
+    const handleLike = async (post: Post) => {
+      if (!currentUser || !post.id) return;
+      const isLiked = post.likes?.includes(currentUser.id);
+      await FirebaseService.toggleLike(post.id, currentUser.id, !!isLiked);
+      fetchData(true);
+    };
+
+    const handleAddComment = async (postId: string) => {
+      if (!currentUser || !newCommentText.trim()) return;
+      setIsSubmittingComment(true);
+      try {
+        const comment: Comment = {
+          id: Math.random().toString(36).substr(2, 9),
+          teamId: currentUser.id!,
+          teamName: currentUser.team_name,
+          teamLogo: currentUser.logo_url!,
+          text: newCommentText,
+          created_at: new Date()
+        };
+        await FirebaseService.addComment(postId, comment);
+        setNewCommentText("");
+        fetchData(true);
+      } catch (e) {
+        alert("فشل إضافة التعليق.");
+      } finally {
+        setIsSubmittingComment(false);
       }
     };
 
@@ -494,21 +518,91 @@ export default function App() {
                <p className="text-slate-400 font-black italic">لا توجد منشورات حالياً.</p>
              </div>
            ) : (
-             posts.map(post => (
-               <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-10 text-right">
-                  <div className="flex items-center gap-5 mb-8 justify-end">
-                    <div className="text-right">
-                       <h4 className="font-black text-xl text-slate-900 cursor-pointer hover:text-blue-600" onClick={() => {
-                         const team = allTeams.find(t => t.id === post.teamId);
-                         if (team) navigateToProfile(team);
-                       }}>{post.teamName}</h4>
-                       <p className="text-[10px] text-slate-400 font-black">نُشر مؤخراً</p>
+             posts.map(post => {
+               const isLiked = currentUser && post.likes?.includes(currentUser.id!);
+               return (
+                 <div key={post.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 md:p-10 text-right">
+                    <div className="flex items-center gap-5 mb-8 justify-end">
+                      <div className="text-right">
+                         <h4 className="font-black text-xl text-slate-900 cursor-pointer hover:text-blue-600" onClick={() => {
+                           const team = allTeams.find(t => t.id === post.teamId);
+                           if (team) navigateToProfile(team);
+                         }}>{post.teamName}</h4>
+                         <p className="text-[10px] text-slate-400 font-black">نُشر مؤخراً</p>
+                      </div>
+                      <img src={post.teamLogo} className="w-16 h-16 rounded-3xl object-cover shadow-lg border-2 border-slate-50" />
                     </div>
-                    <img src={post.teamLogo} className="w-16 h-16 rounded-3xl object-cover shadow-lg border-2 border-slate-50" />
-                  </div>
-                  <p className="text-slate-700 text-xl mb-6 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
-               </div>
-             ))
+                    
+                    <p className="text-slate-700 text-xl mb-8 leading-relaxed whitespace-pre-wrap font-medium">{post.content}</p>
+                    
+                    <div className="flex items-center gap-6 border-t border-slate-50 pt-6">
+                       <button 
+                        onClick={() => handleLike(post)}
+                        disabled={!currentUser}
+                        className={`flex items-center gap-2 font-black transition-colors ${isLiked ? 'text-rose-500' : 'text-slate-400 hover:text-rose-400'}`}
+                       >
+                          <Heart className={`w-6 h-6 ${isLiked ? 'fill-current' : ''}`} />
+                          <span>{post.likes?.length || 0}</span>
+                       </button>
+                       
+                       <button 
+                         onClick={() => setActiveCommentPostId(activeCommentPostId === post.id ? null : post.id!)}
+                         className={`flex items-center gap-2 font-black transition-colors ${activeCommentPostId === post.id ? 'text-blue-600' : 'text-slate-400 hover:text-blue-600'}`}
+                       >
+                          <MessageSquare className="w-6 h-6" />
+                          <span>{post.comments?.length || 0}</span>
+                       </button>
+                    </div>
+
+                    {activeCommentPostId === post.id && (
+                      <div className="mt-8 space-y-6 animate-in slide-in-from-top-4 duration-300 border-t border-slate-50 pt-6">
+                        <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar pr-2">
+                           {post.comments && post.comments.length > 0 ? (
+                             post.comments.map((comment) => (
+                               <div key={comment.id} className="flex gap-3 justify-end items-start">
+                                  <div className="bg-slate-50 p-4 rounded-2xl rounded-tr-none flex-1">
+                                     <div className="flex items-center justify-between mb-1">
+                                        <span className="text-[10px] text-slate-400">منذ قليل</span>
+                                        <span className="font-black text-xs text-slate-800 cursor-pointer hover:text-blue-600" onClick={() => {
+                                          const team = allTeams.find(t => t.id === comment.teamId);
+                                          if (team) navigateToProfile(team);
+                                        }}>{comment.teamName}</span>
+                                     </div>
+                                     <p className="text-sm font-medium text-slate-600">{comment.text}</p>
+                                  </div>
+                                  <img src={comment.teamLogo} className="w-8 h-8 rounded-lg object-cover shrink-0" />
+                               </div>
+                             ))
+                           ) : (
+                             <p className="text-center text-slate-400 text-xs font-bold py-4 italic">لا توجد تعليقات بعد.</p>
+                           )}
+                        </div>
+
+                        {currentUser ? (
+                           <div className="flex gap-3 mt-4 items-center justify-end">
+                              <button 
+                                onClick={() => handleAddComment(post.id!)}
+                                disabled={isSubmittingComment || !newCommentText.trim()}
+                                className="bg-blue-600 text-white p-3 rounded-xl disabled:opacity-50 active:scale-95 transition-all"
+                              >
+                                {isSubmittingComment ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                              </button>
+                              <input 
+                                value={newCommentText}
+                                onChange={(e) => setNewCommentText(e.target.value)}
+                                placeholder="اكتب تعليقك هنا..."
+                                className="bg-slate-100 border-none outline-none p-3 rounded-xl flex-1 text-sm font-bold text-right"
+                                onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id!)}
+                              />
+                           </div>
+                        ) : (
+                          <p className="text-center text-xs font-bold text-slate-400 bg-slate-50 p-3 rounded-xl">يرجى تسجيل الدخول للتعليق.</p>
+                        )}
+                      </div>
+                    )}
+                 </div>
+               );
+             })
            )}
          </div>
       </div>
@@ -525,9 +619,12 @@ export default function App() {
       <div className="space-y-8">
         {matches.map(match => (
           <div key={match.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex items-center gap-6 flex-1 justify-end">
+            <div className="flex items-center gap-6 flex-1 justify-end cursor-pointer" onClick={() => {
+              const team = allTeams.find(t => t.id === match.homeTeamId);
+              if (team) navigateToProfile(team);
+            }}>
               <span className="font-black text-xl text-slate-800">{match.homeTeamName}</span>
-              <img src={match.homeTeamLogo} className="w-20 h-20 rounded-2xl object-cover" />
+              <img src={match.homeTeamLogo} className="w-20 h-20 rounded-2xl object-cover border-2 border-slate-50 shadow-sm" />
             </div>
             
             <div className="flex flex-col items-center gap-2">
@@ -539,8 +636,11 @@ export default function App() {
               <div className="text-[11px] font-bold text-slate-400 mt-1">{match.date} | {match.time}</div>
             </div>
 
-            <div className="flex items-center gap-6 flex-1 justify-start">
-              <img src={match.awayTeamLogo} className="w-20 h-20 rounded-2xl object-cover" />
+            <div className="flex items-center gap-6 flex-1 justify-start cursor-pointer" onClick={() => {
+              const team = allTeams.find(t => t.id === match.awayTeamId);
+              if (team) navigateToProfile(team);
+            }}>
+              <img src={match.awayTeamLogo} className="w-20 h-20 rounded-2xl object-cover border-2 border-slate-50 shadow-sm" />
               <span className="font-black text-xl text-slate-800">{match.awayTeamName}</span>
             </div>
           </div>
@@ -548,6 +648,134 @@ export default function App() {
       </div>
     </div>
   );
+
+  const AdminDashboard = () => {
+    const [activeTab, setActiveTab] = useState<'stats' | 'teams' | 'matches' | 'ads'>('stats');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSeeding, setIsSeeding] = useState(false);
+    const [tempAds, setTempAds] = useState<AdConfig>({...ads});
+
+    const handleSaveAds = async () => {
+      setIsSaving(true);
+      await FirebaseService.updateAds(tempAds);
+      setIsSaving(false);
+      fetchData(true);
+    };
+
+    const seedData = async () => {
+      if (!confirm("سيتم إنشاء أندية افتراضية ومنشورات ترحيبية. هل أنت متأكد؟")) return;
+      setIsSeeding(true);
+      const seedTeams = [
+        { name: "مولودية الجزائر", coach: "بوميل", email: "mca@kora.dz", region: "الجزائر" },
+        { name: "شبيبة القبائل", coach: "بن شيخة", email: "jsk@kora.dz", region: "تيزي وزو" },
+        { name: "وفاق سطيف", coach: "بن دريس", email: "ess@kora.dz", region: "سطيف" }
+      ];
+      for (const t of seedTeams) {
+        const res: any = await FirebaseService.registerTeam({
+          team_name: t.name, coach_name: t.coach, contact_email: t.email, password: "123", region: t.region
+        });
+        if (res.id) {
+          await FirebaseService.createPost({
+            teamId: res.id, teamName: t.name, teamLogo: res.logo_url, content: `نادي ${t.name} يسجل حضوره في البطولة!`
+          });
+        }
+      }
+      setIsSeeding(false);
+      fetchData(true);
+    };
+
+    return (
+      <div className="max-w-6xl mx-auto py-12 px-6 animate-in fade-in duration-500 text-right">
+        <h2 className="text-4xl font-black mb-10 flex items-center gap-4 justify-end">لوحة الإدارة <Lock className="text-blue-600" /></h2>
+        
+        <div className="flex gap-4 mb-10 bg-slate-100 p-2 rounded-2xl w-max mr-0 ml-auto">
+          {['stats', 'teams', 'matches', 'ads'].map((tab: any) => (
+            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-6 py-3 rounded-xl font-black text-xs uppercase ${activeTab === tab ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>
+              {tab === 'stats' ? 'الإحصائيات' : tab === 'teams' ? 'الأندية' : tab === 'matches' ? 'المباريات' : 'الإعلانات'}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'stats' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-50 text-center">
+              <div className="text-4xl font-black text-slate-800">{visitorCount}</div>
+              <div className="text-xs text-slate-400 font-black mt-2">إجمالي الزيارات</div>
+            </div>
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-50 text-center">
+              <div className="text-4xl font-black text-slate-800">{allTeams.length}</div>
+              <div className="text-xs text-slate-400 font-black mt-2">الأندية المسجلة</div>
+            </div>
+            <div className="bg-blue-600 p-8 rounded-3xl shadow-xl text-white text-center cursor-pointer" onClick={seedData}>
+              {isSeeding ? <Loader2 className="animate-spin mx-auto" /> : <Plus className="mx-auto w-10 h-10 mb-2" />}
+              <div className="font-black">توليد بيانات تجريبية</div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'matches' && (
+          <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-50">
+            <h3 className="text-xl font-black mb-6">إضافة مباراة جديدة</h3>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const t = e.target as any;
+              const hId = t[0].value;
+              const aId = t[1].value;
+              const home = allTeams.find(x => x.id === hId);
+              const away = allTeams.find(x => x.id === aId);
+              if (!home || !away) return;
+              await FirebaseService.createMatch({
+                homeTeamId: hId, homeTeamName: home.team_name, homeTeamLogo: home.logo_url!,
+                awayTeamId: aId, awayTeamName: away.team_name, awayTeamLogo: away.logo_url!,
+                date: t[2].value, time: t[3].value, scoreHome: Number(t[4].value), scoreAway: Number(t[5].value),
+                status: 'upcoming'
+              });
+              fetchData(true);
+              (e.target as any).reset();
+            }} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <select className="p-4 bg-slate-50 rounded-2xl font-bold">
+                <option value="">الفريق المستضيف</option>
+                {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
+              </select>
+              <select className="p-4 bg-slate-50 rounded-2xl font-bold">
+                <option value="">الفريق الضيف</option>
+                {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
+              </select>
+              <input type="date" className="p-4 bg-slate-50 rounded-2xl font-bold" />
+              <input type="time" className="p-4 bg-slate-50 rounded-2xl font-bold" />
+              <input type="number" placeholder="أهداف المستضيف" className="p-4 bg-slate-50 rounded-2xl font-bold" />
+              <input type="number" placeholder="أهداف الضيف" className="p-4 bg-slate-50 rounded-2xl font-bold" />
+              <button className="md:col-span-2 py-4 bg-blue-600 text-white font-black rounded-2xl shadow-lg">حفظ المباراة</button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'ads' && (
+          <div className="space-y-6">
+            <div className="bg-white p-8 rounded-3xl shadow-xl border border-slate-50">
+              <h3 className="text-xl font-black mb-6">إدارة المساحات الإعلانية (HTML)</h3>
+              <div className="grid grid-cols-1 gap-6">
+                {(Object.keys(tempAds) as (keyof AdConfig)[]).map(key => (
+                  <div key={key}>
+                    <label className="block text-xs font-black text-slate-400 mb-2 uppercase">{key.replace(/_/g, ' ')}</label>
+                    <textarea 
+                      value={tempAds[key]} 
+                      onChange={e => setTempAds({...tempAds, [key]: e.target.value})}
+                      className="w-full h-24 p-4 bg-slate-50 border border-slate-100 rounded-2xl font-mono text-xs outline-none focus:border-blue-500 transition-all"
+                      placeholder="Insert HTML/Script here..."
+                    />
+                  </div>
+                ))}
+              </div>
+              <button onClick={handleSaveAds} disabled={isSaving} className="mt-8 w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl flex items-center justify-center gap-3">
+                {isSaving ? <Loader2 className="animate-spin" /> : <Save />} حفظ كافة الإعلانات
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderContent = () => {
     if (isLoading) return (
@@ -565,7 +793,7 @@ export default function App() {
       </div>
     );
 
-    if (currentView === 'admin' && isAdmin) return <div className="p-10 text-center">لوحة التحكم (قيد التطوير)</div>;
+    if (currentView === 'admin' && isAdmin) return <AdminDashboard />;
 
     switch(currentView) {
       case 'profile': return <ProfileView />;
@@ -587,6 +815,7 @@ export default function App() {
       );
       case 'login': return <LoginView />;
       case 'register': return <RegisterView />;
+      case 'admin-login': return <AdminLoginView />;
       case 'home':
       default:
         return (
@@ -630,7 +859,7 @@ export default function App() {
     <div className="max-w-md mx-auto py-24 px-6 text-center">
        <div className="bg-white rounded-[3.5rem] p-12 shadow-2xl border border-slate-100">
           <h3 className="text-3xl font-black mb-10 text-slate-900">دخول النادي</h3>
-          <form onSubmit={async (e) => { e.preventDefault(); const t = e.target as any; const { data, error } = await FirebaseService.loginTeam(t[0].value, t[1].value); if (error) alert(error); else { setCurrentUser(data); localStorage.setItem(SESSION_KEY, data.id!); setCurrentView('profile'); setViewedTeam(data); fetchData(true); } }} className="space-y-5">
+          <form onSubmit={async (e) => { e.preventDefault(); const t = e.target as any; const { data, error } = await FirebaseService.loginTeam(t[0].value, t[1].value); if (error) alert(error); else { setCurrentUser(data); localStorage.setItem(SESSION_KEY, data.id!); setViewedTeam(data); setCurrentView('profile'); fetchData(true); } }} className="space-y-5">
             <input type="email" placeholder="البريد الإلكتروني" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-right" />
             <input type="password" placeholder="كلمة المرور" className="w-full p-5 bg-slate-50 border border-slate-100 rounded-2xl outline-none font-bold text-right" />
             <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl shadow-xl hover:bg-blue-700 transition-all">تأكيد الدخول</button>
