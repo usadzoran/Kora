@@ -8,7 +8,7 @@ import {
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
   Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll,
-  Swords, CheckCircle2, XCircle, MoreVertical, Search, Filter
+  Swords, CheckCircle2, XCircle, MoreVertical, Search, Filter, Maximize2
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -122,16 +122,10 @@ export default function App() {
     };
   }, [isAdmin]);
 
-  // Listen for real-time notifications when user is logged in
   useEffect(() => {
     if (currentUser?.id) {
       const unsubscribe = FirebaseService.listenNotifications(currentUser.id, (notifs) => {
         setNotifications(notifs);
-        // Optional: Simple browser alert for new unread notifications
-        const unreadCount = notifs.filter(n => !n.isRead).length;
-        if (unreadCount > 0 && isNotifMenuOpen === false) {
-           // could add sound or subtle visual hint here
-        }
       });
       return () => unsubscribe();
     }
@@ -182,6 +176,7 @@ export default function App() {
     const [isUploadingToGallery, setIsUploadingToGallery] = useState(false);
     const [incomingChallenges, setIncomingChallenges] = useState<Challenge[]>([]);
     const [isSendingChallenge, setIsSendingChallenge] = useState(false);
+    const [selectedImg, setSelectedImg] = useState<string | null>(null);
     const logoInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -289,6 +284,33 @@ export default function App() {
       <div className="max-w-7xl mx-auto py-6 md:py-12 px-4 text-right animate-in fade-in duration-500 pb-32">
          <AdDisplay html={ads.profile_top} />
          
+         {/* Lightbox Modal */}
+         {selectedImg && (
+           <div 
+             className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-10 animate-in fade-in zoom-in-95 duration-300"
+             onClick={() => setSelectedImg(null)}
+           >
+             <div className="absolute inset-0 bg-black/95 backdrop-blur-md"></div>
+             <button 
+               className="absolute top-6 right-6 z-10 p-3 bg-white/10 hover:bg-white/20 rounded-full text-white transition-all shadow-2xl"
+               onClick={() => setSelectedImg(null)}
+             >
+               <X className="w-8 h-8" />
+             </button>
+             <div className="relative max-w-full max-h-full overflow-hidden rounded-3xl md:rounded-[3rem] shadow-[0_0_100px_rgba(37,99,235,0.3)]">
+               <img 
+                 src={selectedImg} 
+                 className="max-w-full max-h-[85vh] object-contain select-none shadow-2xl" 
+                 alt="Full Screen View" 
+                 onClick={(e) => e.stopPropagation()}
+               />
+               <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-xl px-8 py-3 rounded-full border border-white/20 text-white font-black text-sm md:text-base">
+                 {team.team_name} - معرض الصور
+               </div>
+             </div>
+           </div>
+         )}
+
          <div className="bg-slate-900 min-h-[400px] md:h-[600px] rounded-[2.5rem] md:rounded-[3rem] relative overflow-hidden mb-12 shadow-2xl flex flex-col justify-end">
            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
@@ -382,7 +404,6 @@ export default function App() {
            </div>
          </div>
 
-         {/* Grid content remains mostly same... */}
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 md:gap-12">
             <div className="lg:col-span-2 space-y-8 md:y-12">
               {isOwnProfile && incomingChallenges.length > 0 && (
@@ -415,7 +436,7 @@ export default function App() {
                    </div>
                 </div>
               )}
-              {/* Profile Bio and Gallery... */}
+
               <div className="bg-white p-8 md:p-12 rounded-[2rem] md:rounded-[3.5rem] shadow-xl border border-slate-100 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-12 -mt-12 group-hover:scale-150 transition-transform duration-700"></div>
                 <h3 className="text-xl md:text-3xl font-black mb-6 md:mb-8 flex items-center gap-3 relative z-10 text-slate-900">
@@ -457,8 +478,15 @@ export default function App() {
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
                   {team.gallery && team.gallery.length > 0 ? (
                     team.gallery.map((img, i) => (
-                      <div key={i} className="group relative aspect-square overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] shadow-lg border-2 md:border-4 border-slate-50">
+                      <div 
+                        key={i} 
+                        className="group relative aspect-square overflow-hidden rounded-[1.5rem] md:rounded-[2.5rem] shadow-lg border-2 md:border-4 border-slate-50 cursor-pointer"
+                        onClick={() => setSelectedImg(img)}
+                      >
                         <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={`Gallery ${i}`} />
+                        <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                           <Maximize2 className="text-white w-8 h-8 drop-shadow-lg" />
+                        </div>
                       </div>
                     ))
                   ) : (
@@ -470,7 +498,7 @@ export default function App() {
                 </div>
               </div>
             </div>
-            {/* Stats Sidebar */}
+
             <div className="space-y-8 md:y-12">
               <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-8 md:p-12 rounded-[2rem] md:rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
                 <div className="absolute top-0 left-0 w-full h-2 bg-blue-600"></div>
@@ -868,7 +896,59 @@ export default function App() {
             </div>
           </div>
         )}
-        {/* Teams, Matches, etc. continue similarly */}
+        
+        {activeTab === 'teams' && (
+          <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
+              <div className="relative w-full md:w-96">
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن نادي..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full p-4 pr-12 bg-slate-50 rounded-2xl border border-slate-100 outline-none focus:border-blue-500 font-bold"
+                />
+              </div>
+              <h3 className="text-2xl font-black italic">الأندية المسجلة ({allTeams.length})</h3>
+            </div>
+
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-right">
+                <thead className="border-b border-slate-50">
+                  <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                    <th className="pb-6 pr-4">النادي</th>
+                    <th className="pb-6">المنطقة</th>
+                    <th className="pb-6">البريد</th>
+                    <th className="pb-6">اللاعبين</th>
+                    <th className="pb-6 text-left pl-4">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredTeams.map(t => (
+                    <tr key={t.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="py-6 pr-4">
+                        <div className="flex items-center gap-4">
+                          <img src={t.logo_url} className="w-12 h-12 rounded-xl object-cover shadow-sm border border-slate-100" alt="Logo" />
+                          <span className="font-black text-slate-800">{t.team_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-6 font-bold text-slate-600">{t.region}</td>
+                      <td className="py-6 font-bold text-slate-600">{t.contact_email}</td>
+                      <td className="py-6 font-bold text-slate-600">{t.players_count || 0}</td>
+                      <td className="py-6 text-left pl-4">
+                        <div className="flex items-center gap-2 justify-start">
+                           <button onClick={() => navigateToProfile(t)} className="p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"><Eye className="w-4 h-4" /></button>
+                           <button onClick={() => handleDeleteTeam(t.id!)} className="p-3 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
