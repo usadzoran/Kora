@@ -64,13 +64,9 @@ export default function App() {
       if (savedAdmin === 'true') setIsAdmin(true);
 
       const savedTeamId = localStorage.getItem(SESSION_KEY);
-      let currentUserData = user;
       if (savedTeamId) {
         const teamData = await FirebaseService.getTeamById(savedTeamId);
-        if (teamData) {
-          setUser(teamData);
-          currentUserData = teamData;
-        }
+        if (teamData) setUser(teamData);
       }
 
       const [channels, teams, hubPosts, adsData, matchesData, statsData] = await Promise.all([
@@ -134,8 +130,8 @@ export default function App() {
     }
   };
 
-  // Helper for image upload to base64
-  const handleImageUpload = (file: File): Promise<string> => {
+  // وظيفة تحويل الصورة إلى Base64
+  const convertToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -156,13 +152,24 @@ export default function App() {
       setEditData({
         team_name: user.team_name,
         coach_name: user.coach_name,
-        bio: user.bio,
+        bio: user.bio || "فريق رياضي طموح.",
         region: user.region,
         municipality: user.municipality,
-        players_count: user.players_count,
+        players_count: user.players_count || 0,
         logo_url: user.logo_url
       });
       setIsEditing(true);
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+        try {
+          const base64 = await convertToBase64(e.target.files[0]);
+          setEditData(prev => ({ ...prev, logo_url: base64 }));
+        } catch (error) {
+          alert("خطأ في معالجة الصورة.");
+        }
+      }
     };
 
     const saveChanges = async () => {
@@ -179,18 +186,10 @@ export default function App() {
       setIsSaving(false);
     };
 
-    const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (e.target.files && e.target.files[0]) {
-        const base64 = await handleImageUpload(e.target.files[0]);
-        setEditData({ ...editData, logo_url: base64 });
-      }
-    };
-
     return (
       <div className="max-w-7xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500">
          <AdDisplay html={ads.profile_top} />
          
-         {/* Profile Header */}
          <div className="bg-slate-900 h-64 md:h-96 rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
            <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
            <div className="absolute -bottom-12 right-12 flex flex-col md:flex-row items-center gap-8 text-white w-full">
@@ -201,14 +200,14 @@ export default function App() {
                     <Camera className="w-10 h-10 text-white" />
                   </button>
                 )}
-                <input type="file" ref={fileInputRef} onChange={onFileChange} className="hidden" accept="image/*" />
+                <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
              </div>
              <div className="mb-14 text-center md:text-right flex-1">
                {isEditing ? (
                  <input 
                    value={editData.team_name} 
                    onChange={e => setEditData({...editData, team_name: e.target.value})}
-                   className="text-4xl md:text-6xl font-black italic tracking-tighter bg-white/10 border-b-2 border-white/30 outline-none w-full max-w-lg"
+                   className="text-4xl md:text-6xl font-black italic tracking-tighter bg-white/10 border-b-2 border-white/30 outline-none w-full max-w-lg px-2"
                  />
                ) : (
                  <h2 className="text-4xl md:text-6xl font-black italic tracking-tighter">نادي {user.team_name}</h2>
@@ -226,16 +225,17 @@ export default function App() {
                  )}
                </div>
              </div>
+             
              <div className="mb-14 px-12 hidden md:block">
                {isEditing ? (
                   <div className="flex gap-4">
-                    <button onClick={saveChanges} disabled={isSaving} className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-600 shadow-lg">
+                    <button onClick={saveChanges} disabled={isSaving} className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-600 shadow-lg transition-all active:scale-95">
                       {isSaving ? <Loader2 className="animate-spin" /> : <SaveAll className="w-5 h-5" />} حفظ التغييرات
                     </button>
-                    <button onClick={() => setIsEditing(false)} className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black hover:bg-white/20">إلغاء</button>
+                    <button onClick={() => setIsEditing(false)} className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black hover:bg-white/20 transition-all">إلغاء</button>
                   </div>
                ) : (
-                  <button onClick={startEditing} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 shadow-lg">
+                  <button onClick={startEditing} className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 shadow-lg transition-all active:scale-95">
                     <Edit3 className="w-5 h-5" /> تعديل البروفايل
                   </button>
                )}
@@ -243,7 +243,6 @@ export default function App() {
            </div>
          </div>
 
-         {/* Stats and Bio Grid */}
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 px-4">
            <div className="lg:col-span-2 space-y-8">
              <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
@@ -253,14 +252,13 @@ export default function App() {
                     value={editData.bio} 
                     onChange={e => setEditData({...editData, bio: e.target.value})}
                     placeholder="اكتب شيئاً عن تاريخ النادي وطموحاته..."
-                    className="w-full h-40 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-slate-700"
+                    className="w-full h-40 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-slate-700 text-right"
                   />
                 ) : (
-                  <p className="text-slate-600 text-lg leading-relaxed font-bold">{user.bio || "لا توجد نبذة تعريفية حالياً."}</p>
+                  <p className="text-slate-600 text-lg leading-relaxed font-bold">{user.bio || "لا يوجد نبذة تعريفية حالياً."}</p>
                 )}
              </div>
              
-             {/* Team Posts */}
              <div className="space-y-6">
                 <h3 className="text-2xl font-black flex items-center gap-3 justify-end italic px-4 text-slate-800">آخر المنشورات <Hash className="text-slate-400" /></h3>
                 {posts.filter(p => p.teamId === user.id).length === 0 ? (
@@ -270,8 +268,8 @@ export default function App() {
                 ) : (
                   posts.filter(p => p.teamId === user.id).map(post => (
                     <div key={post.id} className="bg-white p-8 rounded-[2rem] shadow-lg border border-slate-100 text-right">
-                       <p className="text-slate-700 text-lg leading-relaxed">{post.content}</p>
-                       <div className="text-[10px] text-slate-400 font-black mt-4 border-t pt-4">نُشر في {new Date(post.created_at.toDate()).toLocaleDateString('ar-DZ')}</div>
+                       <p className="text-slate-700 text-lg leading-relaxed font-medium">{post.content}</p>
+                       <div className="text-[10px] text-slate-400 font-black mt-4 border-t pt-4">نُشر في {new Date(post.created_at?.toDate()).toLocaleDateString('ar-DZ')}</div>
                     </div>
                   ))
                 )}
@@ -323,9 +321,13 @@ export default function App() {
                    <p className="text-xl font-black italic text-slate-900">{user.coach_name}</p>
                  )}
               </div>
+              
               <div className="md:hidden">
                  {isEditing ? (
-                    <button onClick={saveChanges} disabled={isSaving} className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black shadow-lg">حفظ التغييرات</button>
+                    <div className="grid grid-cols-2 gap-3">
+                       <button onClick={saveChanges} disabled={isSaving} className="py-4 bg-emerald-500 text-white rounded-2xl font-black shadow-lg">حفظ</button>
+                       <button onClick={() => setIsEditing(false)} className="py-4 bg-slate-200 text-slate-600 rounded-2xl font-black">إلغاء</button>
+                    </div>
                  ) : (
                     <button onClick={startEditing} className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black shadow-lg">تعديل الملف الشخصي</button>
                  )}
@@ -368,7 +370,6 @@ export default function App() {
             <p className="text-slate-400 font-bold">المساحة الرسمية لتفاعل الأندية والمنشورات الحية</p>
          </div>
 
-         {/* Create Post Input */}
          {user && (
            <div className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 mb-12 animate-in slide-in-from-top duration-500">
              <div className="flex items-center gap-4 mb-6 justify-end">
@@ -379,7 +380,7 @@ export default function App() {
                value={newPostContent}
                onChange={e => setNewPostContent(e.target.value)}
                placeholder="ماذا يدور في كواليس فريقك اليوم؟" 
-               className="w-full h-32 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-right"
+               className="w-full h-32 p-5 bg-slate-50 border border-slate-100 rounded-3xl outline-none font-bold text-right text-slate-800"
              />
              <div className="flex justify-start mt-4">
                 <button 
@@ -398,7 +399,7 @@ export default function App() {
              <div className="h-64 flex flex-col items-center justify-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
                <MessageSquare className="w-12 h-12 text-slate-300 mb-4" />
                <p className="text-slate-400 font-black italic">لا توجد منشورات حالياً.. كن أول من ينشر!</p>
-               <button onClick={() => fetchData(true)} className="mt-4 text-blue-500 font-bold flex items-center gap-2"><RefreshCw className="w-4 h-4" /> تحديث الصفحة</button>
+               <button onClick={() => fetchData(true)} className="mt-4 text-blue-500 font-bold flex items-center gap-2 hover:underline"><RefreshCw className="w-4 h-4" /> تحديث الصفحة</button>
              </div>
            ) : (
              posts.map(post => (
@@ -419,6 +420,59 @@ export default function App() {
            )}
          </div>
          <AdDisplay html={ads.hub_bottom} />
+    </div>
+  );
+
+  // Match Center View Component
+  const MatchCenterView = () => (
+    <div className="max-w-5xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500">
+      <AdDisplay html={ads.matches_top} />
+      <div className="text-center mb-16">
+        <h2 className="text-5xl font-black italic mb-4 text-slate-900">مركز المباريات</h2>
+        <p className="text-slate-400 font-bold">النتائج، المواعيد، وحالة المباريات المباشرة</p>
+      </div>
+
+      <div className="space-y-8">
+        {matches.length === 0 ? (
+          <div className="bg-slate-50 p-16 rounded-[3rem] text-center border-2 border-dashed border-slate-200">
+            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-400 font-black italic">لا توجد مباريات مبرمجة حالياً.</p>
+          </div>
+        ) : (
+          matches.map(match => (
+            <div key={match.id} className="bg-white rounded-[2.5rem] shadow-xl border border-slate-100 p-8 flex flex-col md:flex-row items-center justify-between gap-8 transition-all hover:shadow-2xl">
+              <div className="flex items-center gap-6 flex-1 justify-end">
+                <span className="font-black text-xl text-slate-800">{match.homeTeamName}</span>
+                <img src={match.homeTeamLogo} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-slate-50" />
+              </div>
+              
+              <div className="flex flex-col items-center gap-2">
+                <div className="flex items-center gap-4 bg-slate-900 text-white px-8 py-4 rounded-[2rem] shadow-lg">
+                  <span className="text-4xl font-black">{match.scoreHome}</span>
+                  <span className="text-slate-500 font-black text-2xl">-</span>
+                  <span className="text-4xl font-black">{match.scoreAway}</span>
+                </div>
+                <div className={`mt-2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ${
+                  match.status === 'live' ? 'bg-red-100 text-red-600 animate-pulse' : 
+                  match.status === 'finished' ? 'bg-slate-100 text-slate-500' : 
+                  'bg-blue-100 text-blue-600'
+                }`}>
+                  {match.status === 'live' ? 'مباشر الآن' : match.status === 'finished' ? 'انتهت' : 'قادمة'}
+                </div>
+                <div className="text-[11px] font-bold text-slate-400 mt-1 flex items-center gap-1">
+                  {match.date} | {match.time} <Clock className="w-3 h-3" />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-6 flex-1 justify-start">
+                <img src={match.awayTeamLogo} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-slate-50" />
+                <span className="font-black text-xl text-slate-800">{match.awayTeamName}</span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      <AdDisplay html={ads.matches_bottom} className="mt-12" />
     </div>
   );
 
@@ -549,7 +603,7 @@ export default function App() {
               <Database className="w-12 h-12 text-amber-500 mx-auto mb-4" />
               <h3 className="text-xl font-black text-amber-900 mb-2">توليد بيانات افتراضية</h3>
               <p className="text-amber-700 font-bold text-sm mb-8 mx-auto leading-relaxed">سيتم إنشاء 6 أندية ومنشوراتها ترحيبية فوراً.</p>
-              <button onClick={seedData} disabled={isSeeding} className="bg-amber-500 text-white px-10 py-4 rounded-2xl font-black shadow-xl flex items-center gap-3 mx-auto">
+              <button onClick={seedData} disabled={isSeeding} className="bg-amber-500 text-white px-10 py-4 rounded-2xl font-black shadow-xl flex items-center gap-3 mx-auto transition-all active:scale-95">
                 {isSeeding ? <Loader2 className="w-6 h-6 animate-spin" /> : <><Plus className="w-6 h-6" /> توليد الأندية والمنشورات</>}
               </button>
             </div>
@@ -597,94 +651,9 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {activeTab === 'ads' && (
-          <div className="space-y-10 text-right">
-            <div className="bg-blue-600 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden">
-               <div className="relative z-10">
-                  <div className="flex items-center gap-3 justify-end mb-6 text-white"><h3 className="text-2xl font-black italic">أداة النشر السريع</h3><Zap className="w-8 h-8 text-amber-400 fill-current" /></div>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                     <div className="space-y-4">
-                        <textarea value={bulkAdCode} onChange={(e) => setBulkAdCode(e.target.value)} placeholder="ألصق كود الإعلان هنا..." className="w-full h-48 p-5 bg-white/10 border-2 border-white/20 rounded-[1.5rem] outline-none font-mono text-xs placeholder:text-blue-200/50" />
-                        <button onClick={applyBulkAd} className="w-full py-5 bg-white text-blue-600 rounded-2xl font-black text-lg shadow-xl hover:bg-blue-50 transition-all flex items-center justify-center gap-3"><Layers className="w-6 h-6" /> تطبيق على الأماكن المحددة</button>
-                     </div>
-                     <div className="bg-white/5 p-6 rounded-[2rem] border border-white/10">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                           {adSlots.map(slot => (
-                             <label key={slot.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${selectedSlots.includes(slot.id) ? 'bg-white/20 border-white/40' : 'bg-transparent border-white/10'}`}>
-                               <div className={`w-4 h-4 rounded-md border flex items-center justify-center ${selectedSlots.includes(slot.id) ? 'bg-amber-400 border-amber-400' : 'border-white/30'}`}>{selectedSlots.includes(slot.id) && <Check className="w-3 h-3 text-blue-900" />}</div>
-                               <span className="text-[10px] font-bold text-white">{slot.label}</span>
-                               <input type="checkbox" className="hidden" checked={selectedSlots.includes(slot.id)} onChange={() => toggleSlotSelection(slot.id)} />
-                             </label>
-                           ))}
-                        </div>
-                     </div>
-                  </div>
-               </div>
-            </div>
-            <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-50">
-               <form onSubmit={async (e) => { e.preventDefault(); setIsSaving(true); await FirebaseService.updateAds(tempAds); alert('تم الحفظ!'); setAds(tempAds); setIsSaving(false); fetchData(true); }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {adSlots.map((slot) => (
-                  <div key={slot.id} className="space-y-2 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                    <label className="text-[10px] font-black text-slate-400 uppercase block">{slot.label}</label>
-                    <textarea value={(tempAds as any)[slot.id]} onChange={e => setTempAds({...tempAds, [slot.id]: e.target.value})} className="w-full h-32 p-3 bg-slate-900 text-emerald-400 font-mono text-[9px] rounded-xl outline-none" />
-                  </div>
-                ))}
-                <div className="lg:col-span-3 pt-6"><button type="submit" className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xl shadow-2xl flex items-center justify-center gap-3"><Save className="w-6 h-6" /> حفظ وتفعيل الإعلانات</button></div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     );
   };
-
-  const MatchCenterView = () => (
-    <div className="max-w-7xl mx-auto py-12 px-6 pb-24 text-right animate-in fade-in duration-500">
-      <AdDisplay html={ads.matches_top} />
-      <div className="flex items-center justify-between mb-12">
-         <div className="bg-slate-900 px-6 py-3 rounded-2xl text-white font-black text-xs uppercase flex items-center gap-3"><Activity className="w-4 h-4 text-emerald-400" /> مركز المباريات المباشر</div>
-         <h2 className="text-4xl md:text-5xl font-black italic text-slate-900">جدول البطولة</h2>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {matches.length === 0 ? (
-          <div className="col-span-full py-24 text-center bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200">
-            <Calendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-400 font-black italic">لم يتم جدولة أي مباريات بعد.</p>
-          </div>
-        ) : (
-          matches.map(m => (
-            <div key={m.id} className="bg-white rounded-[2.5rem] p-8 shadow-xl border border-slate-100 flex flex-col gap-6 relative overflow-hidden group hover:translate-y-[-5px] transition-all">
-               <div className="flex justify-between items-center relative z-10">
-                 <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-tighter shadow-sm border ${m.status === 'live' ? 'bg-rose-600 text-white border-rose-500 animate-pulse' : m.status === 'finished' ? 'bg-slate-800 text-white border-slate-700' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                   {m.status === 'live' ? 'مباشر الآن' : m.status === 'finished' ? 'انتهت' : 'قادمة'}
-                 </div>
-                 <div className="text-[10px] font-black text-slate-400">{m.tournament_round}</div>
-               </div>
-               <div className="flex items-center justify-around py-4 relative z-10">
-                  <div className="text-center flex-1">
-                    <img src={m.homeTeamLogo} className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-2 border-white shadow-md mb-4 object-contain" />
-                    <p className="font-black text-sm truncate text-slate-800">{m.homeTeamName}</p>
-                  </div>
-                  <div className="text-4xl md:text-5xl font-black tracking-tighter text-slate-900 bg-slate-50 px-6 py-4 rounded-[2rem] border border-slate-100">
-                     {m.scoreHome} <span className="text-slate-200">-</span> {m.scoreAway}
-                  </div>
-                  <div className="text-center flex-1">
-                    <img src={m.awayTeamLogo} className="w-20 h-20 mx-auto bg-slate-50 rounded-[1.5rem] p-3 border-2 border-white shadow-md mb-4 object-contain" />
-                    <p className="font-black text-sm truncate text-slate-800">{m.awayTeamName}</p>
-                  </div>
-               </div>
-               <div className="flex items-center justify-center gap-4 pt-6 border-t border-slate-50 text-[10px] font-black text-slate-400">
-                  <span className="flex items-center gap-2"><Calendar className="w-4 h-4 text-blue-500" /> {m.date}</span>
-                  <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-500" /> {m.time}</span>
-               </div>
-            </div>
-          ))
-        )}
-      </div>
-      <AdDisplay html={ads.matches_bottom} />
-    </div>
-  );
 
   const renderContent = () => {
     if (isLoading) return (
@@ -710,7 +679,7 @@ export default function App() {
               <div key={ch.id} className="bg-white rounded-[2.5rem] p-6 shadow-xl border border-slate-100">
                 <div className="h-56 w-full rounded-[2rem] overflow-hidden mb-6 relative"><img src={ch.thumbnail_url} className="w-full h-full object-cover" /></div>
                 <h4 className="font-black text-xl mb-4 truncate">{ch.name}</h4>
-                <button onClick={() => window.open(ch.stream_url, '_blank')} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-lg">شاهد الآن</button>
+                <button onClick={() => window.open(ch.stream_url, '_blank')} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black shadow-lg transition-all active:scale-95">شاهد الآن</button>
               </div>
             ))}
           </div>
@@ -755,7 +724,7 @@ export default function App() {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-10">
           {allTeams.map(team => (
-            <div key={team.id} onClick={() => { setUser(team); setCurrentView('profile'); }} className="text-center group animate-in zoom-in duration-500 cursor-pointer">
+            <div key={team.id} onClick={() => { setUser(team); setCurrentView('profile'); window.scrollTo(0,0); }} className="text-center group animate-in zoom-in duration-500 cursor-pointer">
               <img src={team.logo_url} className="w-36 h-36 mx-auto rounded-[2.5rem] border-4 border-white shadow-xl group-hover:scale-110 transition-all duration-500 bg-white object-cover mb-6" />
               <p className="font-black text-slate-800 text-lg group-hover:text-blue-600 transition-colors truncate px-2">{team.team_name}</p>
             </div>

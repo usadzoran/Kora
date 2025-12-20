@@ -1,5 +1,8 @@
 {
   "description": "Sports Team Registration Portal",
-  "requestFramePermissions": [],
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
   "name": "TeamReg"
 }
