@@ -8,7 +8,7 @@ import {
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
   Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll,
-  Swords, CheckCircle2, XCircle
+  Swords, CheckCircle2, XCircle, MoreVertical, Search, Filter
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -721,70 +721,362 @@ export default function App() {
   );
 
   const AdminDashboard = () => {
-    const [activeTab, setActiveTab] = useState<'stats' | 'teams' | 'matches' | 'ads'>('stats');
-    const [isSaving, setIsSaving] = useState(false);
-    const [isSeeding, setIsSeeding] = useState(false);
+    const [activeTab, setActiveTab] = useState<'overview' | 'teams' | 'matches' | 'live' | 'ads'>('overview');
+    const [isActionLoading, setIsActionLoading] = useState(false);
     const [tempAds, setTempAds] = useState<AdConfig>({...ads});
+    const [searchTerm, setSearchTerm] = useState("");
 
     const handleSaveAds = async () => {
-      setIsSaving(true);
+      setIsActionLoading(true);
       await FirebaseService.updateAds(tempAds);
-      setIsSaving(false);
+      setIsActionLoading(false);
+      fetchData(true);
+      alert("تم حفظ الإعلانات بنجاح.");
+    };
+
+    const handleDeleteTeam = async (id: string) => {
+      if (!confirm("هل أنت متأكد من حذف هذا الفريق نهائياً؟")) return;
+      setIsActionLoading(true);
+      await FirebaseService.deleteTeam(id);
+      setIsActionLoading(false);
       fetchData(true);
     };
 
-    const seedData = async () => {
-      if (!confirm("سيتم إنشاء أندية افتراضية ومنشورات ترحيبية. هل أنت متأكد؟")) return;
-      setIsSeeding(true);
-      const seedTeams = [
-        { name: "مولودية الجزائر", coach: "بوميل", email: "mca@kora.dz", region: "الجزائر" },
-        { name: "شبيبة القبائل", coach: "بن شيخة", email: "jsk@kora.dz", region: "تيزي وزو" },
-        { name: "وفاق سطيف", coach: "بن دريس", email: "ess@kora.dz", region: "سطيف" }
-      ];
-      for (const t of seedTeams) {
-        const res: any = await FirebaseService.registerTeam({
-          team_name: t.name, coach_name: t.coach, contact_email: t.email, password: "123", region: t.region
-        });
-        if (res.id) {
-          await FirebaseService.createPost({
-            teamId: res.id, teamName: t.name, teamLogo: res.logo_url, content: `نادي ${t.name} يسجل حضوره في البطولة!`
-          });
-        }
-      }
-      setIsSeeding(false);
+    const handleDeleteMatch = async (id: string) => {
+      if (!confirm("حذف هذه المباراة؟")) return;
+      setIsActionLoading(true);
+      await FirebaseService.deleteMatch(id);
+      setIsActionLoading(false);
       fetchData(true);
     };
+
+    const handleToggleLive = async (channel: LiveChannel) => {
+      setIsActionLoading(true);
+      await FirebaseService.updateLiveChannel(channel.id!, { is_active: !channel.is_active });
+      setIsActionLoading(false);
+      fetchData(true);
+    };
+
+    const filteredTeams = allTeams.filter(t => t.team_name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
-      <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-6 animate-in fade-in duration-500 text-right">
-        <h2 className="text-3xl md:text-4xl font-black mb-10 flex items-center gap-4 justify-end">لوحة الإدارة <Lock className="text-blue-600" /></h2>
+      <div className="max-w-7xl mx-auto py-8 md:py-12 px-4 animate-in fade-in duration-500 text-right">
+        <div className="flex flex-col md:flex-row items-center justify-between mb-12 gap-6">
+           <div className="flex items-center gap-4">
+              <div className="bg-slate-900 text-white px-6 py-2 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2">
+                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div> نظام الإدارة نشط
+              </div>
+           </div>
+           <h2 className="text-3xl md:text-5xl font-black italic flex items-center gap-4 text-slate-900">
+             لوحة التحكم الملكية <Lock className="text-blue-600 w-8 h-8 md:w-10 md:h-10" />
+           </h2>
+        </div>
         
-        <div className="flex gap-2 md:gap-4 mb-10 bg-slate-100 p-1.5 rounded-xl md:rounded-2xl w-full md:w-max mr-0 ml-auto overflow-x-auto">
-          {['stats', 'teams', 'matches', 'ads'].map((tab: any) => (
-            <button key={tab} onClick={() => setActiveTab(tab)} className={`shrink-0 px-4 md:px-6 py-2 md:py-3 rounded-lg md:rounded-xl font-black text-[10px] md:text-xs uppercase ${activeTab === tab ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}>
-              {tab === 'stats' ? 'الإحصائيات' : tab === 'teams' ? 'الأندية' : tab === 'matches' ? 'المباريات' : 'الإعلانات'}
+        <div className="flex gap-2 mb-12 bg-white p-2 rounded-[2rem] shadow-xl border border-slate-100 w-full overflow-x-auto custom-scrollbar no-scrollbar">
+          {[
+            {id: 'overview', label: 'نظرة عامة', icon: LayoutGrid},
+            {id: 'teams', label: 'إدارة الأندية', icon: Users},
+            {id: 'matches', label: 'المباريات', icon: Calendar},
+            {id: 'live', label: 'البث المباشر', icon: Radio},
+            {id: 'ads', label: 'المساحات الإعلانية', icon: Megaphone},
+          ].map((tab: any) => (
+            <button 
+              key={tab.id} 
+              onClick={() => setActiveTab(tab.id)} 
+              className={`shrink-0 flex items-center gap-2 px-6 py-4 rounded-[1.5rem] font-black text-xs uppercase transition-all ${activeTab === tab.id ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {activeTab === 'stats' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-            <div className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-xl border border-slate-50 text-center">
-              <div className="text-3xl md:text-4xl font-black text-slate-800">{visitorCount}</div>
-              <div className="text-[10px] text-slate-400 font-black mt-2">إجمالي الزيارات</div>
+        {activeTab === 'overview' && (
+          <div className="space-y-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[
+                { label: 'الزيارات الكلية', val: visitorCount, icon: Eye, color: 'blue' },
+                { label: 'الأندية المسجلة', val: allTeams.length, icon: Users, color: 'emerald' },
+                { label: 'المباريات المقررة', val: matches.length, icon: Calendar, color: 'amber' },
+                { label: 'المنشورات', val: posts.length, icon: MessageSquare, color: 'rose' },
+              ].map((stat, i) => (
+                <div key={i} className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-50 flex flex-col items-center text-center group hover:scale-105 transition-transform">
+                  <div className={`p-4 rounded-2xl bg-${stat.color}-50 text-${stat.color}-600 mb-4 group-hover:rotate-12 transition-transform`}>
+                    <stat.icon className="w-8 h-8" />
+                  </div>
+                  <div className="text-4xl font-black text-slate-800">{stat.val}</div>
+                  <div className="text-[10px] text-slate-400 font-black mt-2 uppercase tracking-widest">{stat.label}</div>
+                </div>
+              ))}
             </div>
-            <div className="bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-xl border border-slate-50 text-center">
-              <div className="text-3xl md:text-4xl font-black text-slate-800">{allTeams.length}</div>
-              <div className="text-[10px] text-slate-400 font-black mt-2">الأندية المسجلة</div>
-            </div>
-            <div className="bg-blue-600 p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-xl text-white text-center cursor-pointer" onClick={seedData}>
-              {isSeeding ? <Loader2 className="animate-spin mx-auto" /> : <Plus className="mx-auto w-8 h-8 md:w-10 md:h-10 mb-2" />}
-              <div className="font-black text-xs md:text-base">توليد بيانات تجريبية</div>
+
+            <div className="bg-blue-600 p-12 rounded-[3.5rem] shadow-2xl relative overflow-hidden text-white group">
+               <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-150 transition-transform duration-1000"></div>
+               <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-center md:text-right">
+                  <div>
+                     <h3 className="text-3xl font-black mb-3 italic">مركز البيانات</h3>
+                     <p className="font-bold opacity-80 text-lg">يمكنك توليد بيانات تجريبية للأندية والمنشورات لاختبار النظام بسرعة.</p>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      setIsActionLoading(true);
+                      const seedTeams = [
+                        { name: "شباب بلوزداد", coach: "باكيتا", email: "crb@kora.dz", region: "الجزائر" },
+                        { name: "اتحاد العاصمة", coach: "غاريدو", email: "usma@kora.dz", region: "الجزائر" }
+                      ];
+                      for (const t of seedTeams) {
+                        const res: any = await FirebaseService.registerTeam({
+                          team_name: t.name, coach_name: t.coach, contact_email: t.email, password: "123", region: t.region
+                        });
+                        if (res.id) {
+                          await FirebaseService.createPost({
+                            teamId: res.id, teamName: t.name, teamLogo: res.logo_url, content: `نادي ${t.name} مستعد للتحدي!`
+                          });
+                        }
+                      }
+                      setIsActionLoading(false);
+                      fetchData(true);
+                      alert("تم توليد البيانات بنجاح.");
+                    }}
+                    disabled={isActionLoading}
+                    className="bg-white text-blue-600 px-12 py-5 rounded-[2rem] font-black text-xl shadow-xl flex items-center gap-3 hover:scale-105 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {isActionLoading ? <Loader2 className="animate-spin" /> : <Database className="w-6 h-6" />}
+                    توليد بيانات فورية
+                  </button>
+               </div>
             </div>
           </div>
         )}
 
-        {/* Matches and Ads sections would follow similar responsive patterns */}
+        {activeTab === 'teams' && (
+          <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
+            <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
+              <div className="relative w-full md:w-96">
+                <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+                <input 
+                  type="text" 
+                  placeholder="ابحث عن نادي..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full p-4 pr-12 bg-slate-50 rounded-2xl border border-slate-100 outline-none focus:border-blue-500 font-bold"
+                />
+              </div>
+              <h3 className="text-2xl font-black italic">الأندية المسجلة ({allTeams.length})</h3>
+            </div>
+
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-right">
+                <thead className="border-b border-slate-50">
+                  <tr className="text-slate-400 text-[10px] font-black uppercase tracking-widest">
+                    <th className="pb-6 pr-4">النادي</th>
+                    <th className="pb-6">المنطقة</th>
+                    <th className="pb-6">البريد</th>
+                    <th className="pb-6">اللاعبين</th>
+                    <th className="pb-6 text-left pl-4">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredTeams.map(t => (
+                    <tr key={t.id} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="py-6 pr-4">
+                        <div className="flex items-center gap-4">
+                          <img src={t.logo_url} className="w-12 h-12 rounded-xl object-cover shadow-sm border border-slate-100" alt="Logo" />
+                          <span className="font-black text-slate-800">{t.team_name}</span>
+                        </div>
+                      </td>
+                      <td className="py-6 font-bold text-slate-600">{t.region}</td>
+                      <td className="py-6 font-bold text-slate-600">{t.contact_email}</td>
+                      <td className="py-6 font-bold text-slate-600">{t.players_count || 0}</td>
+                      <td className="py-6 text-left pl-4">
+                        <div className="flex items-center gap-2 justify-start">
+                           <button onClick={() => navigateToProfile(t)} className="p-3 rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all"><Eye className="w-4 h-4" /></button>
+                           <button onClick={() => handleDeleteTeam(t.id!)} className="p-3 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all"><Trash2 className="w-4 h-4" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'matches' && (
+          <div className="space-y-12">
+            <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+              <h3 className="text-2xl font-black mb-10 italic flex items-center gap-3"><Plus className="text-blue-600" /> إضافة مباراة رسمية</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                const t = e.target as any;
+                const hId = t[0].value;
+                const aId = t[1].value;
+                const home = allTeams.find(x => x.id === hId);
+                const away = allTeams.find(x => x.id === aId);
+                if (!home || !away) return alert("اختر الفرق أولاً.");
+                setIsActionLoading(true);
+                await FirebaseService.createMatch({
+                  homeTeamId: hId, homeTeamName: home.team_name, homeTeamLogo: home.logo_url!,
+                  awayTeamId: aId, awayTeamName: away.team_name, awayTeamLogo: away.logo_url!,
+                  date: t[2].value, time: t[3].value, scoreHome: Number(t[4].value), scoreAway: Number(t[5].value),
+                  status: 'upcoming'
+                });
+                setIsActionLoading(false);
+                fetchData(true);
+                (e.target as any).reset();
+                alert("تمت إضافة المباراة.");
+              }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">الفريق المستضيف</label>
+                  <select className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 ring-blue-500/20">
+                    <option value="">اختر فريق...</option>
+                    {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">الفريق الضيف</label>
+                  <select className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none focus:ring-2 ring-blue-500/20">
+                    <option value="">اختر فريق...</option>
+                    {allTeams.map(t => <option key={t.id} value={t.id}>{t.team_name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">التاريخ</label>
+                  <input type="date" className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">الوقت</label>
+                  <input type="time" className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">أهداف المستضيف</label>
+                  <input type="number" defaultValue={0} className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 pr-2">أهداف الضيف</label>
+                  <input type="number" defaultValue={0} className="w-full p-5 bg-slate-50 rounded-2xl font-bold border-none outline-none" />
+                </div>
+                <button 
+                  disabled={isActionLoading}
+                  className="lg:col-span-3 py-6 bg-blue-600 text-white font-black rounded-3xl shadow-xl flex items-center justify-center gap-3 hover:bg-blue-700 transition-all disabled:opacity-50"
+                >
+                  {isActionLoading ? <Loader2 className="animate-spin" /> : <Save />} حفظ المباراة والجدولة
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-xl border border-slate-100 overflow-hidden">
+               <h3 className="text-2xl font-black mb-10 italic">جدول المباريات الحالي</h3>
+               <div className="space-y-4">
+                  {matches.map(m => (
+                    <div key={m.id} className="p-6 bg-slate-50 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6 hover:bg-slate-100 transition-colors">
+                       <div className="flex items-center gap-4 flex-1 justify-end">
+                          <span className="font-black text-lg">{m.homeTeamName}</span>
+                          <img src={m.homeTeamLogo} className="w-12 h-12 rounded-xl object-cover" />
+                       </div>
+                       <div className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-xl">
+                          {m.scoreHome} - {m.scoreAway}
+                       </div>
+                       <div className="flex items-center gap-4 flex-1 justify-start">
+                          <img src={m.awayTeamLogo} className="w-12 h-12 rounded-xl object-cover" />
+                          <span className="font-black text-lg">{m.awayTeamName}</span>
+                       </div>
+                       <div className="flex items-center gap-2 border-r pr-6 border-slate-200">
+                          <button onClick={() => handleDeleteMatch(m.id!)} className="p-4 bg-rose-50 text-rose-600 rounded-2xl hover:bg-rose-600 hover:text-white transition-all">
+                             <Trash2 className="w-5 h-5" />
+                          </button>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'live' && (
+          <div className="space-y-12">
+            <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+               <h3 className="text-2xl font-black mb-10 italic">قنوات البث المباشر</h3>
+               <form onSubmit={async (e) => {
+                 e.preventDefault();
+                 const t = e.target as any;
+                 setIsActionLoading(true);
+                 await FirebaseService.createLiveChannel({
+                   name: t[0].value,
+                   description: t[1].value,
+                   thumbnail_url: t[2].value || "https://images.unsplash.com/photo-1574629810360-7efbbe195018",
+                   stream_url: t[3].value,
+                   is_active: true
+                 });
+                 setIsActionLoading(false);
+                 fetchData(true);
+                 (e.target as any).reset();
+                 alert("تمت إضافة القناة.");
+               }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <input placeholder="اسم القناة" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none" required />
+                 <input placeholder="الوصف" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none" required />
+                 <input placeholder="رابط صورة الغلاف" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none" />
+                 <input placeholder="رابط البث (URL)" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none" required />
+                 <button className="md:col-span-2 py-6 bg-blue-600 text-white font-black rounded-3xl shadow-xl flex items-center justify-center gap-3">
+                   {isActionLoading ? <Loader2 className="animate-spin" /> : <Plus />} إنشاء قناة بث
+                 </button>
+               </form>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               {liveChannels.map(ch => (
+                 <div key={ch.id} className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col">
+                    <div className="h-40 rounded-2xl overflow-hidden mb-6 relative">
+                       <img src={ch.thumbnail_url} className="w-full h-full object-cover" />
+                       <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-black uppercase ${ch.is_active ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'}`}>
+                          {ch.is_active ? 'نشط' : 'متوقف'}
+                       </div>
+                    </div>
+                    <h4 className="font-black text-xl mb-6 truncate text-slate-800">{ch.name}</h4>
+                    <div className="flex gap-2 mt-auto">
+                       <button onClick={() => handleToggleLive(ch)} className={`flex-1 py-4 rounded-xl font-black text-xs uppercase ${ch.is_active ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {ch.is_active ? 'إيقاف مؤقت' : 'تفعيل القناة'}
+                       </button>
+                       <button onClick={async () => { if(confirm("حذف القناة؟")){ await FirebaseService.deleteLiveChannel(ch.id!); fetchData(true); } }} className="p-4 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
+                          <Trash2 className="w-5 h-5" />
+                       </button>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'ads' && (
+          <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+            <h3 className="text-2xl font-black mb-10 italic flex items-center gap-3">
+              <Megaphone className="text-blue-600" /> إدارة المساحات الإعلانية (HTML)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {(Object.keys(tempAds) as (keyof AdConfig)[]).map(key => (
+                <div key={key} className="space-y-3">
+                  <div className="flex items-center justify-between pr-2">
+                    <span className="bg-slate-100 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-widest">{key.replace(/_/g, ' ')}</span>
+                    <span className="text-xs text-slate-400 font-bold">مكان الإعلان</span>
+                  </div>
+                  <textarea 
+                    value={tempAds[key]} 
+                    onChange={e => setTempAds({...tempAds, [key]: e.target.value})}
+                    className="w-full h-32 p-5 bg-slate-50 border border-slate-100 rounded-[1.5rem] font-mono text-[11px] outline-none focus:border-blue-500 transition-all custom-scrollbar"
+                    placeholder="Insert HTML script here..."
+                  />
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={handleSaveAds} 
+              disabled={isActionLoading} 
+              className="mt-12 w-full py-7 bg-blue-600 text-white font-black rounded-3xl shadow-2xl flex items-center justify-center gap-4 text-xl hover:bg-blue-700 transition-all disabled:opacity-50 active:scale-95"
+            >
+              {isActionLoading ? <Loader2 className="animate-spin" /> : <SaveAll className="w-7 h-7" />} حفظ كافة التعديلات الإعلانية
+            </button>
+          </div>
+        )}
       </div>
     );
   };
