@@ -238,7 +238,10 @@ export default function App() {
     };
 
     const handleChallengeClick = async () => {
-      if (!currentUser || !team.id) return;
+      if (!currentUser || !team.id) {
+        alert("يرجى تسجيل الدخول لتتمكن من تحدي هذا الفريق.");
+        return;
+      }
       setIsSendingChallenge(true);
       const res = await FirebaseService.sendChallenge({
         fromId: currentUser.id!,
@@ -247,7 +250,7 @@ export default function App() {
         toId: team.id
       });
       if (res.success) {
-        alert("تم إرسال التحدي بنجاح! بانتظار رد الفريق.");
+        alert(`تم إرسال تحدي رسمي إلى نادي ${team.team_name}!`);
       } else {
         alert(res.error || "فشل إرسال التحدي.");
       }
@@ -258,7 +261,7 @@ export default function App() {
       const res = await FirebaseService.updateChallengeStatus(challengeId, status);
       if (res.success) {
         setIncomingChallenges(prev => prev.map(c => c.id === challengeId ? {...c, status} : c));
-        alert(status === 'accepted' ? "تم قبول التحدي! استعد للمواجهة." : "تم رفض التحدي.");
+        alert(status === 'accepted' ? "لقد قبلت التحدي! تواصل مع الفريق لترتيب المباراة." : "تم رفض التحدي.");
       }
     };
 
@@ -266,23 +269,30 @@ export default function App() {
       <div className="max-w-7xl mx-auto py-12 px-4 text-right animate-in fade-in duration-500 pb-32">
          <AdDisplay html={ads.profile_top} />
          
-         <div className="bg-slate-900 h-64 md:h-[450px] rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
-           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/50 to-transparent"></div>
+         <div className="bg-slate-900 h-[500px] md:h-[600px] rounded-[3rem] relative overflow-hidden mb-16 shadow-2xl">
+           <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20"></div>
            
-           <div className="absolute bottom-10 right-10 left-10 flex flex-col md:flex-row items-end gap-8 text-white">
+           <div className="absolute bottom-12 right-12 left-12 flex flex-col md:flex-row items-end gap-10 text-white">
              <div className="relative group shrink-0">
-                <div className="w-40 h-40 md:w-56 md:h-56 rounded-[3rem] border-8 border-white bg-white shadow-2xl overflow-hidden">
-                  <img 
+                <div className="w-48 h-48 md:w-64 md:h-64 rounded-[3.5rem] border-8 border-white bg-white shadow-2xl overflow-hidden relative">
+                   <img 
                     src={isEditing ? (editData.logo_url || team.logo_url) : team.logo_url} 
                     className="w-full h-full object-cover" 
                     alt="Logo"
                   />
+                  {!isOwnProfile && (
+                     <div className="absolute top-4 left-4">
+                        <div className="bg-emerald-500 text-white p-2 rounded-full shadow-lg">
+                           <Shield className="w-5 h-5" />
+                        </div>
+                     </div>
+                  )}
                 </div>
                 {isEditing && isOwnProfile && (
                   <button 
                     onClick={() => logoInputRef.current?.click()} 
-                    className="absolute inset-0 bg-black/60 rounded-[3rem] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm"
+                    className="absolute inset-0 bg-black/60 rounded-[3.5rem] flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 backdrop-blur-sm"
                   >
                     <Camera className="w-12 h-12 text-white mb-2" />
                     <span className="text-xs font-black">تغيير الشعار</span>
@@ -291,9 +301,9 @@ export default function App() {
                 <input type="file" ref={logoInputRef} onChange={handleLogoUpload} className="hidden" accept="image/*" />
              </div>
 
-             <div className="flex-1 mb-4">
-               <div className="flex items-center gap-3 mb-2 justify-end">
-                 <div className="px-3 py-1 bg-blue-600 rounded-full text-[10px] font-black uppercase tracking-widest">نادي رسمي</div>
+             <div className="flex-1 mb-6">
+               <div className="flex items-center gap-4 mb-4 justify-end flex-wrap">
+                 <div className="px-4 py-1.5 bg-blue-600 rounded-full text-[11px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20">نادي النخبة</div>
                  {isEditing ? (
                    <input 
                      value={editData.team_name} 
@@ -301,98 +311,119 @@ export default function App() {
                      className="text-4xl md:text-6xl font-black italic tracking-tighter bg-white/10 border-b-4 border-white/30 outline-none w-full max-w-lg px-2 text-right focus:border-blue-500 transition-colors"
                    />
                  ) : (
-                   <h2 className="text-4xl md:text-7xl font-black italic tracking-tighter leading-tight drop-shadow-lg">نادي {team.team_name}</h2>
+                   <h2 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-none drop-shadow-2xl">نادي {team.team_name}</h2>
                  )}
                </div>
                
-               <div className="flex items-center gap-4 justify-end mt-4">
-                 <div className="flex items-center gap-2 text-blue-300 font-bold bg-white/5 px-4 py-2 rounded-2xl backdrop-blur-md border border-white/10">
-                   <MapPin className="w-5 h-5" />
+               <div className="flex items-center gap-6 justify-end mt-6">
+                 <div className="flex items-center gap-3 text-blue-200 font-bold bg-white/5 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/10">
+                   <MapPin className="w-6 h-6" />
                    {isEditing ? (
                       <input 
                         value={editData.region} 
                         onChange={e => setEditData({...editData, region: e.target.value})}
-                        className="bg-transparent border-none outline-none text-white font-bold w-24 text-right"
+                        className="bg-transparent border-none outline-none text-white font-bold w-32 text-right"
                       />
                    ) : (
-                      <span>{team.municipality || team.region}</span>
+                      <span className="text-xl">{team.municipality || team.region}</span>
                    )}
                  </div>
-                 <div className="flex items-center gap-2 text-emerald-400 font-bold bg-white/5 px-4 py-2 rounded-2xl backdrop-blur-md border border-white/10">
-                   <Users className="w-5 h-5" />
-                   <span>{team.players_count || 0} لاعب</span>
+                 <div className="flex items-center gap-3 text-emerald-400 font-bold bg-white/5 px-6 py-3 rounded-2xl backdrop-blur-md border border-white/10">
+                   <Users className="w-6 h-6" />
+                   <span className="text-xl">{team.players_count || 0} لاعب</span>
                  </div>
                </div>
              </div>
 
-             <div className="hidden md:flex gap-4 mb-4">
+             <div className="flex gap-4 mb-6">
                {isOwnProfile ? (
                   !isEditing ? (
                     <button 
                       onClick={startEditing} 
-                      className="bg-white text-slate-900 px-10 py-5 rounded-[2rem] font-black text-lg flex items-center gap-3 hover:bg-blue-50 transition-all shadow-xl active:scale-95"
+                      className="bg-white text-slate-900 px-12 py-6 rounded-[2.5rem] font-black text-xl flex items-center gap-3 hover:bg-blue-50 transition-all shadow-2xl active:scale-95"
                     >
-                      <Edit3 className="w-6 h-6 text-blue-600" />
-                      تعديل البيانات
+                      <Edit3 className="w-7 h-7 text-blue-600" />
+                      إدارة الفريق
                     </button>
                   ) : (
                     <>
                       <button 
                         onClick={saveChanges} 
                         disabled={isSaving} 
-                        className="bg-emerald-500 text-white px-10 py-5 rounded-[2rem] font-black text-lg flex items-center gap-3 hover:bg-emerald-600 disabled:opacity-50 shadow-xl active:scale-95 transition-all"
+                        className="bg-emerald-500 text-white px-12 py-6 rounded-[2.5rem] font-black text-xl flex items-center gap-3 hover:bg-emerald-600 disabled:opacity-50 shadow-2xl active:scale-95 transition-all"
                       >
-                        {isSaving ? <Loader2 className="animate-spin w-6 h-6" /> : <Save className="w-6 h-6" />}
-                        حفظ التغييرات
+                        {isSaving ? <Loader2 className="animate-spin w-7 h-7" /> : <Save className="w-7 h-7" />}
+                        حفظ البيانات
                       </button>
                       <button 
                         onClick={() => setIsEditing(false)} 
-                        className="bg-white/10 backdrop-blur-md text-white px-10 py-5 rounded-[2rem] font-black text-lg hover:bg-white/20 transition-all active:scale-95"
+                        className="bg-white/10 backdrop-blur-md text-white px-10 py-6 rounded-[2.5rem] font-black text-xl hover:bg-white/20 transition-all active:scale-95"
                       >
                         إلغاء
                       </button>
                     </>
                   )
-               ) : currentUser && (
+               ) : (
                   <button 
                     onClick={handleChallengeClick}
                     disabled={isSendingChallenge}
-                    className="bg-gradient-to-r from-rose-600 to-orange-600 text-white px-12 py-5 rounded-[2rem] font-black text-xl flex items-center gap-3 hover:from-rose-700 hover:to-orange-700 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+                    className="group relative bg-gradient-to-br from-rose-600 via-orange-600 to-amber-500 text-white px-14 py-7 rounded-[2.5rem] font-black text-2xl flex items-center gap-4 hover:scale-105 transition-all shadow-[0_20px_50px_rgba(225,29,72,0.3)] active:scale-95 disabled:opacity-50 overflow-hidden"
                   >
-                    {isSendingChallenge ? <Loader2 className="animate-spin" /> : <Swords className="w-8 h-8" />}
-                    تحدي النادي
+                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="relative flex items-center gap-4">
+                      {isSendingChallenge ? <Loader2 className="animate-spin w-8 h-8" /> : <Swords className="w-9 h-9 animate-pulse" />}
+                      <span className="tracking-tight italic">أتحداكم!</span>
+                    </div>
                   </button>
                )}
              </div>
            </div>
          </div>
 
-         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-            <div className="lg:col-span-2 space-y-10">
+         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="lg:col-span-2 space-y-12">
               {isOwnProfile && incomingChallenges.length > 0 && (
-                <div className="bg-white p-10 rounded-[3rem] shadow-xl border-l-8 border-rose-500 relative overflow-hidden">
-                   <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-900">
-                     <Flame className="w-7 h-7 text-rose-500 animate-bounce" />
-                     تحديات واردة
+                <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl border-l-8 border-rose-500 relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-64 h-64 bg-rose-50 rounded-full -mr-32 -mt-32 opacity-50"></div>
+                   <h3 className="text-3xl font-black mb-10 flex items-center gap-4 text-slate-900 relative z-10">
+                     <Flame className="w-9 h-9 text-rose-500 animate-bounce" />
+                     طلبات التحدي الواردة
                    </h3>
-                   <div className="space-y-4">
+                   <div className="space-y-6 relative z-10">
                       {incomingChallenges.map(c => (
-                        <div key={c.id} className="bg-slate-50 p-6 rounded-[2rem] flex items-center justify-between border border-slate-100">
-                           <div className="flex gap-4 justify-start">
+                        <div key={c.id} className="bg-slate-50 p-8 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between border border-slate-100 group hover:border-rose-200 transition-all">
+                           <div className="flex gap-4 items-center order-2 md:order-1 mt-6 md:mt-0">
                              {c.status === 'pending' ? (
                                <>
-                                 <button onClick={() => handleChallengeResponse(c.id!, 'accepted')} className="bg-emerald-500 text-white p-3 rounded-full hover:bg-emerald-600 active:scale-90 transition-all"><CheckCircle2 className="w-6 h-6" /></button>
-                                 <button onClick={() => handleChallengeResponse(c.id!, 'declined')} className="bg-rose-500 text-white p-3 rounded-full hover:bg-rose-600 active:scale-90 transition-all"><XCircle className="w-6 h-6" /></button>
+                                 <button 
+                                   onClick={() => handleChallengeResponse(c.id!, 'accepted')} 
+                                   className="bg-emerald-500 text-white px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-emerald-600 active:scale-90 transition-all shadow-lg"
+                                 >
+                                    <CheckCircle2 className="w-5 h-5" /> قبول
+                                 </button>
+                                 <button 
+                                   onClick={() => handleChallengeResponse(c.id!, 'declined')} 
+                                   className="bg-white text-rose-500 border-2 border-rose-100 px-8 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-rose-50 active:scale-90 transition-all shadow-sm"
+                                 >
+                                    <XCircle className="w-5 h-5" /> رفض
+                                 </button>
                                </>
                              ) : (
-                               <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase ${c.status === 'accepted' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                                 {c.status === 'accepted' ? 'تم القبول' : 'تم الرفض'}
-                               </span>
+                               <div className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm uppercase ${c.status === 'accepted' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                 {c.status === 'accepted' ? <CheckCircle2 className="w-5 h-5" /> : <XCircle className="w-5 h-5" />}
+                                 {c.status === 'accepted' ? 'تم قبول التحدي' : 'تم الرفض'}
+                               </div>
                              )}
                            </div>
-                           <div className="flex items-center gap-4 text-right">
-                              <div className="font-black text-slate-800">تحدي من {c.fromName}</div>
-                              <img src={c.fromLogo} className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm" />
+                           <div className="flex items-center gap-6 text-right order-1 md:order-2">
+                              <div className="space-y-1">
+                                 <div className="font-black text-2xl text-slate-800 cursor-pointer hover:text-blue-600" onClick={() => {
+                                   const team = allTeams.find(t => t.id === c.fromId);
+                                   if (team) navigateToProfile(team);
+                                 }}>{c.fromName}</div>
+                                 <div className="text-xs font-bold text-slate-400">يرغب في مواجهتكم قريباً!</div>
+                              </div>
+                              <img src={c.fromLogo} className="w-20 h-20 rounded-[1.5rem] object-cover border-4 border-white shadow-xl group-hover:scale-110 transition-transform" />
                            </div>
                         </div>
                       ))}
@@ -400,94 +431,95 @@ export default function App() {
                 </div>
               )}
 
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 relative overflow-hidden group">
+              <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border border-slate-100 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-                <h3 className="text-2xl font-black mb-8 flex items-center gap-3 relative z-10 text-slate-900">
-                  <Info className="w-7 h-7 text-blue-600" />
-                  نبذة عن النادي
+                <h3 className="text-3xl font-black mb-8 flex items-center gap-4 relative z-10 text-slate-900">
+                  <Info className="w-8 h-8 text-blue-600" />
+                  عن النادي
                 </h3>
                 {isEditing ? (
                   <textarea 
                     value={editData.bio}
                     onChange={e => setEditData({...editData, bio: e.target.value})}
-                    placeholder="اكتب شيئاً عن تاريخ النادي وأهدافه..."
-                    className="w-full h-48 bg-slate-50 rounded-3xl p-6 border-2 border-slate-100 outline-none focus:border-blue-500 transition-all text-lg font-bold text-slate-700 leading-relaxed text-right"
+                    placeholder="اكتب تاريخ النادي، بطولاته، أو رؤيته..."
+                    className="w-full h-56 bg-slate-50 rounded-[2.5rem] p-8 border-2 border-slate-100 outline-none focus:border-blue-500 transition-all text-xl font-bold text-slate-700 leading-relaxed text-right"
                   />
                 ) : (
-                  <p className="text-slate-600 leading-relaxed text-xl font-medium relative z-10 whitespace-pre-wrap">{team.bio || "لا يوجد وصف متوفر للنادي حالياً."}</p>
+                  <p className="text-slate-600 leading-relaxed text-2xl font-medium relative z-10 whitespace-pre-wrap">{team.bio || "لم يقم النادي بإضافة وصف بعد."}</p>
                 )}
               </div>
 
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
-                <div className="flex items-center justify-between mb-10">
+              <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+                <div className="flex items-center justify-between mb-12">
                   {isOwnProfile && (
                     <button 
                       onClick={() => galleryInputRef.current?.click()}
                       disabled={isUploadingToGallery}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg active:scale-95 disabled:opacity-50"
+                      className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-black flex items-center gap-3 hover:bg-blue-700 transition-all shadow-xl active:scale-95 disabled:opacity-50"
                     >
-                      {isUploadingToGallery ? <Loader2 className="animate-spin w-5 h-5" /> : <Upload className="w-5 h-5" />}
-                      تحميل صور
+                      {isUploadingToGallery ? <Loader2 className="animate-spin w-6 h-6" /> : <Upload className="w-6 h-6" />}
+                      إضافة صور
                     </button>
                   )}
-                  <h3 className="text-2xl font-black flex items-center gap-3 text-slate-900">
-                    <ImageIcon className="w-7 h-7 text-blue-600" />
-                    معرض صور النادي
+                  <h3 className="text-3xl font-black flex items-center gap-4 text-slate-900">
+                    <ImageIcon className="w-8 h-8 text-blue-600" />
+                    معرض الصور
                   </h3>
                 </div>
                 
                 <input type="file" ref={galleryInputRef} onChange={handleGalleryUpload} className="hidden" accept="image/*" />
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
                   {team.gallery && team.gallery.length > 0 ? (
                     team.gallery.map((img, i) => (
-                      <div key={i} className="group relative aspect-square overflow-hidden rounded-3xl shadow-lg border-4 border-slate-50 cursor-pointer">
+                      <div key={i} className="group relative aspect-square overflow-hidden rounded-[2.5rem] shadow-lg border-4 border-slate-50 cursor-pointer">
                         <img src={img} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt={`Gallery ${i}`} />
+                        <div className="absolute inset-0 bg-blue-600/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
                     ))
                   ) : (
-                    <div className="col-span-full py-20 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 text-center">
-                       <ImageIcon className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                       <p className="text-slate-400 font-black italic">لا توجد صور في المعرض حالياً.</p>
+                    <div className="col-span-full py-24 bg-slate-50 rounded-[3rem] border-2 border-dashed border-slate-200 text-center">
+                       <ImageIcon className="w-20 h-20 text-slate-200 mx-auto mb-6" />
+                       <p className="text-slate-400 font-black italic text-xl">المعرض فارغ حالياً.</p>
                     </div>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-10">
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-10 rounded-[3rem] text-white shadow-2xl relative overflow-hidden group">
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600"></div>
-                <h3 className="text-2xl font-black mb-8 flex items-center gap-3 relative z-10">
-                  <TrendingUp className="w-7 h-7 text-blue-400" />
-                  إحصائيات الموسم
+            <div className="space-y-12">
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-12 rounded-[3.5rem] text-white shadow-2xl relative overflow-hidden group">
+                <div className="absolute top-0 left-0 w-full h-2 bg-blue-600 shadow-[0_0_20px_rgba(37,99,235,0.5)]"></div>
+                <h3 className="text-3xl font-black mb-10 flex items-center gap-4 relative z-10">
+                  <TrendingUp className="w-8 h-8 text-blue-400" />
+                  السجل الرياضي
                 </h3>
                 
-                <div className="grid grid-cols-2 gap-6 relative z-10">
-                  <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl text-center border border-white/10 group-hover:bg-white/10 transition-colors">
-                    <div className="text-4xl font-black text-emerald-400 mb-1">{team.wins || 0}</div>
-                    <div className="text-[10px] opacity-60 font-black uppercase tracking-widest">فوز</div>
+                <div className="grid grid-cols-2 gap-8 relative z-10">
+                  <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] text-center border border-white/10 group-hover:bg-white/10 transition-all">
+                    <div className="text-5xl font-black text-emerald-400 mb-2">{team.wins || 0}</div>
+                    <div className="text-[11px] opacity-60 font-black uppercase tracking-widest">فوز مستحق</div>
                   </div>
-                  <div className="bg-white/5 backdrop-blur-md p-6 rounded-3xl text-center border border-white/10 group-hover:bg-white/10 transition-colors">
-                    <div className="text-4xl font-black text-rose-400 mb-1">{team.losses || 0}</div>
-                    <div className="text-[10px] opacity-60 font-black uppercase tracking-widest">هزائم</div>
+                  <div className="bg-white/5 backdrop-blur-xl p-8 rounded-[2.5rem] text-center border border-white/10 group-hover:bg-white/10 transition-all">
+                    <div className="text-5xl font-black text-rose-400 mb-2">{team.losses || 0}</div>
+                    <div className="text-[11px] opacity-60 font-black uppercase tracking-widest">هزائم مشرفة</div>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
-                <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-900">
-                  <Shield className="w-7 h-7 text-blue-600" />
-                  إدارة النادي
+              <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+                <h3 className="text-3xl font-black mb-10 flex items-center gap-4 text-slate-900">
+                  <Shield className="w-8 h-8 text-blue-600" />
+                  الطاقم التقني
                 </h3>
-                <div className="space-y-6">
-                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">المدرب الرئيسي</div>
-                    <div className="text-xl font-black text-slate-900 italic">الكابتن {team.coach_name}</div>
+                <div className="space-y-8">
+                  <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                    <div className="text-[11px] text-slate-400 font-black mb-2 uppercase tracking-widest">المدرب الرئيسي</div>
+                    <div className="text-2xl font-black text-slate-900 italic">الكابتن {team.coach_name}</div>
                   </div>
-                  <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100">
-                    <div className="text-[10px] text-slate-400 font-black mb-1 uppercase tracking-widest">المنطقة</div>
-                    <div className="text-lg font-bold text-slate-700">{team.region}</div>
+                  <div className="p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100">
+                    <div className="text-[11px] text-slate-400 font-black mb-2 uppercase tracking-widest">مقر النادي</div>
+                    <div className="text-xl font-bold text-slate-700">{team.region}</div>
                   </div>
                 </div>
               </div>
