@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { FirebaseService } from './services/firebase';
-import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match } from './types';
+import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match, Challenge } from './types';
 import { 
   Trophy, Shield, Loader2, Radio, ExternalLink, RefreshCw, LogOut, Save, Copy, Check, User, 
   LayoutGrid, Image as ImageIcon, Send, MapPin, Users, Plus, Hash, Edit3, Camera, Heart, 
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
-  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll
+  Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll,
+  Swords, CheckCircle2, XCircle
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -159,6 +160,8 @@ export default function App() {
     const [editData, setEditData] = useState<Partial<TeamRegistration>>({});
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingToGallery, setIsUploadingToGallery] = useState(false);
+    const [incomingChallenges, setIncomingChallenges] = useState<Challenge[]>([]);
+    const [isSendingChallenge, setIsSendingChallenge] = useState(false);
     const logoInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
@@ -166,6 +169,12 @@ export default function App() {
     if (!team) return null;
 
     const isOwnProfile = currentUser?.id === team.id;
+
+    useEffect(() => {
+      if (isOwnProfile && team.id) {
+        FirebaseService.getIncomingChallenges(team.id).then(setIncomingChallenges);
+      }
+    }, [isOwnProfile, team.id]);
 
     const startEditing = () => {
       setEditData({
@@ -226,6 +235,31 @@ export default function App() {
         alert("فشل تحديث البيانات.");
       }
       setIsSaving(false);
+    };
+
+    const handleChallengeClick = async () => {
+      if (!currentUser || !team.id) return;
+      setIsSendingChallenge(true);
+      const res = await FirebaseService.sendChallenge({
+        fromId: currentUser.id!,
+        fromName: currentUser.team_name,
+        fromLogo: currentUser.logo_url!,
+        toId: team.id
+      });
+      if (res.success) {
+        alert("تم إرسال التحدي بنجاح! بانتظار رد الفريق.");
+      } else {
+        alert(res.error || "فشل إرسال التحدي.");
+      }
+      setIsSendingChallenge(false);
+    };
+
+    const handleChallengeResponse = async (challengeId: string, status: 'accepted' | 'declined') => {
+      const res = await FirebaseService.updateChallengeStatus(challengeId, status);
+      if (res.success) {
+        setIncomingChallenges(prev => prev.map(c => c.id === challengeId ? {...c, status} : c));
+        alert(status === 'accepted' ? "تم قبول التحدي! استعد للمواجهة." : "تم رفض التحدي.");
+      }
     };
 
     return (
@@ -291,9 +325,9 @@ export default function App() {
                </div>
              </div>
 
-             {isOwnProfile && (
-               <div className="hidden md:flex gap-4 mb-4">
-                  {!isEditing ? (
+             <div className="hidden md:flex gap-4 mb-4">
+               {isOwnProfile ? (
+                  !isEditing ? (
                     <button 
                       onClick={startEditing} 
                       className="bg-white text-slate-900 px-10 py-5 rounded-[2rem] font-black text-lg flex items-center gap-3 hover:bg-blue-50 transition-all shadow-xl active:scale-95"
@@ -318,14 +352,54 @@ export default function App() {
                         إلغاء
                       </button>
                     </>
-                  )}
-               </div>
-             )}
+                  )
+               ) : currentUser && (
+                  <button 
+                    onClick={handleChallengeClick}
+                    disabled={isSendingChallenge}
+                    className="bg-gradient-to-r from-rose-600 to-orange-600 text-white px-12 py-5 rounded-[2rem] font-black text-xl flex items-center gap-3 hover:from-rose-700 hover:to-orange-700 transition-all shadow-2xl active:scale-95 disabled:opacity-50"
+                  >
+                    {isSendingChallenge ? <Loader2 className="animate-spin" /> : <Swords className="w-8 h-8" />}
+                    تحدي النادي
+                  </button>
+               )}
+             </div>
            </div>
          </div>
 
          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
             <div className="lg:col-span-2 space-y-10">
+              {isOwnProfile && incomingChallenges.length > 0 && (
+                <div className="bg-white p-10 rounded-[3rem] shadow-xl border-l-8 border-rose-500 relative overflow-hidden">
+                   <h3 className="text-2xl font-black mb-8 flex items-center gap-3 text-slate-900">
+                     <Flame className="w-7 h-7 text-rose-500 animate-bounce" />
+                     تحديات واردة
+                   </h3>
+                   <div className="space-y-4">
+                      {incomingChallenges.map(c => (
+                        <div key={c.id} className="bg-slate-50 p-6 rounded-[2rem] flex items-center justify-between border border-slate-100">
+                           <div className="flex gap-4 justify-start">
+                             {c.status === 'pending' ? (
+                               <>
+                                 <button onClick={() => handleChallengeResponse(c.id!, 'accepted')} className="bg-emerald-500 text-white p-3 rounded-full hover:bg-emerald-600 active:scale-90 transition-all"><CheckCircle2 className="w-6 h-6" /></button>
+                                 <button onClick={() => handleChallengeResponse(c.id!, 'declined')} className="bg-rose-500 text-white p-3 rounded-full hover:bg-rose-600 active:scale-90 transition-all"><XCircle className="w-6 h-6" /></button>
+                               </>
+                             ) : (
+                               <span className={`px-4 py-2 rounded-full text-[10px] font-black uppercase ${c.status === 'accepted' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                                 {c.status === 'accepted' ? 'تم القبول' : 'تم الرفض'}
+                               </span>
+                             )}
+                           </div>
+                           <div className="flex items-center gap-4 text-right">
+                              <div className="font-black text-slate-800">تحدي من {c.fromName}</div>
+                              <img src={c.fromLogo} className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm" />
+                           </div>
+                        </div>
+                      ))}
+                   </div>
+                </div>
+              )}
+
               <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 rounded-bl-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
                 <h3 className="text-2xl font-black mb-8 flex items-center gap-3 relative z-10 text-slate-900">

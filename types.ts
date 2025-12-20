@@ -76,6 +76,16 @@ export interface Match {
   created_at: any;
 }
 
+export interface Challenge {
+  id?: string;
+  fromId: string;
+  fromName: string;
+  fromLogo: string;
+  toId: string;
+  status: 'pending' | 'accepted' | 'declined';
+  created_at: any;
+}
+
 export interface VisitorStats {
   total_visits: number;
 }

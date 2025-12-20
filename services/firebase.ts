@@ -19,7 +19,7 @@ import {
   setDoc,
   increment
 } from "firebase/firestore";
-import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match } from "../types";
+import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match, Challenge } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKnoCa3sKwZrQaUXy0PNkJ1FbsJGAOyjk",
@@ -76,6 +76,47 @@ export const FirebaseService = {
   deleteMatch: async (id: string) => {
     try {
       await deleteDoc(doc(db, "matches", id));
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  // Challenges Management
+  sendChallenge: async (challenge: Omit<Challenge, 'id' | 'created_at' | 'status'>) => {
+    try {
+      // Check if there is already a pending challenge between these two
+      const q = query(
+        collection(db, "challenges"), 
+        where("fromId", "==", challenge.fromId),
+        where("toId", "==", challenge.toId),
+        where("status", "==", "pending")
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) throw new Error("يوجد تحدي معلق بالفعل لهذا الفريق.");
+
+      await addDoc(collection(db, "challenges"), {
+        ...challenge,
+        status: 'pending',
+        created_at: Timestamp.now()
+      });
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  getIncomingChallenges: async (teamId: string): Promise<Challenge[]> => {
+    try {
+      const q = query(
+        collection(db, "challenges"), 
+        where("toId", "==", teamId),
+        orderBy("created_at", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
+    } catch (error) { return []; }
+  },
+
+  updateChallengeStatus: async (challengeId: string, status: 'accepted' | 'declined') => {
+    try {
+      await updateDoc(doc(db, "challenges", challengeId), { status });
       return { success: true };
     } catch (e: any) { return { error: e.message }; }
   },
@@ -196,7 +237,6 @@ export const FirebaseService = {
       const docRef = await addDoc(collection(db, "teams"), teamToSave);
       return { id: docRef.id, ...teamToSave, error: null };
     } catch (error: any) {
-      // Added id: undefined to satisfy TypeScript union types when consuming code checks for id
       return { id: undefined, error: error.code === 'permission-denied' ? "PERMISSION_DENIED" : error.message };
     }
   },
