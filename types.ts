@@ -86,6 +86,17 @@ export interface Challenge {
   created_at: any;
 }
 
+export interface AppNotification {
+  id?: string;
+  toTeamId: string;
+  title: string;
+  message: string;
+  type: 'challenge' | 'match' | 'system';
+  isRead: boolean;
+  relatedId?: string;
+  created_at: any;
+}
+
 export interface VisitorStats {
   total_visits: number;
 }

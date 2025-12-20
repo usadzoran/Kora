@@ -17,9 +17,10 @@ import {
   arrayRemove,
   limit,
   setDoc,
-  increment
+  increment,
+  onSnapshot
 } from "firebase/firestore";
-import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match, Challenge } from "../types";
+import { TeamRegistration, LiveChannel, Post, Comment, AdConfig, Match, Challenge, AppNotification } from "../types";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAKnoCa3sKwZrQaUXy0PNkJ1FbsJGAOyjk",
@@ -50,7 +51,100 @@ export const FirebaseService = {
     } catch (e) { return 0; }
   },
 
-  // Matches Management
+  // Notifications
+  sendNotification: async (notif: Omit<AppNotification, 'id' | 'created_at' | 'isRead'>) => {
+    try {
+      await addDoc(collection(db, "notifications"), {
+        ...notif,
+        isRead: false,
+        created_at: Timestamp.now()
+      });
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  listenNotifications: (teamId: string, callback: (notifs: AppNotification[]) => void) => {
+    const q = query(
+      collection(db, "notifications"),
+      where("toTeamId", "==", teamId),
+      orderBy("created_at", "desc"),
+      limit(20)
+    );
+    return onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification));
+      callback(notifs);
+    });
+  },
+
+  markNotificationRead: async (id: string) => {
+    try {
+      await updateDoc(doc(db, "notifications", id), { isRead: true });
+    } catch (e) {}
+  },
+
+  // Challenges Management
+  sendChallenge: async (challenge: Omit<Challenge, 'id' | 'created_at' | 'status'>) => {
+    try {
+      const q = query(
+        collection(db, "challenges"), 
+        where("fromId", "==", challenge.fromId),
+        where("toId", "==", challenge.toId),
+        where("status", "==", "pending")
+      );
+      const snap = await getDocs(q);
+      if (!snap.empty) throw new Error("يوجد تحدي معلق بالفعل لهذا الفريق.");
+
+      const docRef = await addDoc(collection(db, "challenges"), {
+        ...challenge,
+        status: 'pending',
+        created_at: Timestamp.now()
+      });
+
+      // Create a notification for the challenged team
+      await FirebaseService.sendNotification({
+        toTeamId: challenge.toId,
+        title: "تحدي جديد!",
+        message: `نادي ${challenge.fromName} قد تحداكم رسمياً. هل أنتم مستعدون؟`,
+        type: 'challenge',
+        relatedId: docRef.id
+      });
+
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  getIncomingChallenges: async (teamId: string): Promise<Challenge[]> => {
+    try {
+      const q = query(
+        collection(db, "challenges"), 
+        where("toId", "==", teamId),
+        orderBy("created_at", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
+    } catch (error) { return []; }
+  },
+
+  updateChallengeStatus: async (challengeId: string, status: 'accepted' | 'declined') => {
+    try {
+      await updateDoc(doc(db, "challenges", challengeId), { status });
+      const challengeDoc = await getDoc(doc(db, "challenges", challengeId));
+      if (challengeDoc.exists()) {
+        const c = challengeDoc.data();
+        await FirebaseService.sendNotification({
+          toTeamId: c.fromId,
+          title: status === 'accepted' ? "تم قبول التحدي!" : "تم رفض التحدي",
+          message: status === 'accepted' 
+            ? `نادي ${c.toId} وافق على تحديكم. استعدوا للمواجهة!` 
+            : `للأسف، نادي ${c.toId} اعتذر عن قبول التحدي هذه المرة.`,
+          type: 'challenge'
+        });
+      }
+      return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+  },
+
+  // Other Firebase Service functions remain same...
   getMatches: async (): Promise<Match[]> => {
     try {
       const q = query(collection(db, "matches"), orderBy("date", "asc"));
@@ -80,48 +174,6 @@ export const FirebaseService = {
     } catch (e: any) { return { error: e.message }; }
   },
 
-  // Challenges Management
-  sendChallenge: async (challenge: Omit<Challenge, 'id' | 'created_at' | 'status'>) => {
-    try {
-      // Check if there is already a pending challenge between these two
-      const q = query(
-        collection(db, "challenges"), 
-        where("fromId", "==", challenge.fromId),
-        where("toId", "==", challenge.toId),
-        where("status", "==", "pending")
-      );
-      const snap = await getDocs(q);
-      if (!snap.empty) throw new Error("يوجد تحدي معلق بالفعل لهذا الفريق.");
-
-      await addDoc(collection(db, "challenges"), {
-        ...challenge,
-        status: 'pending',
-        created_at: Timestamp.now()
-      });
-      return { success: true };
-    } catch (e: any) { return { error: e.message }; }
-  },
-
-  getIncomingChallenges: async (teamId: string): Promise<Challenge[]> => {
-    try {
-      const q = query(
-        collection(db, "challenges"), 
-        where("toId", "==", teamId),
-        orderBy("created_at", "desc")
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Challenge));
-    } catch (error) { return []; }
-  },
-
-  updateChallengeStatus: async (challengeId: string, status: 'accepted' | 'declined') => {
-    try {
-      await updateDoc(doc(db, "challenges", challengeId), { status });
-      return { success: true };
-    } catch (e: any) { return { error: e.message }; }
-  },
-
-  // Ads Management
   getAds: async (): Promise<AdConfig> => {
     try {
       const docRef = doc(db, "settings", "ads");
@@ -164,7 +216,6 @@ export const FirebaseService = {
     } catch (error: any) { return { error: error.message }; }
   },
 
-  // Live Channels Management
   getLiveChannels: async (all = false): Promise<LiveChannel[]> => {
     try {
       const constraints = all ? [] : [where("is_active", "==", true)];
@@ -198,7 +249,6 @@ export const FirebaseService = {
     } catch (error: any) { return { error: error.message }; }
   },
 
-  // Teams Management
   getAllTeams: async (): Promise<TeamRegistration[]> => {
     try {
       const q = query(collection(db, "teams"), orderBy("created_at", "desc"));
@@ -277,7 +327,6 @@ export const FirebaseService = {
     } catch (error: any) { return { error: error.message }; }
   },
 
-  // Posts Management
   createPost: async (postData: Omit<Post, 'id' | 'created_at'>) => {
     try {
       const postToSave = { ...postData, likes: [], comments: [], created_at: Timestamp.now() };
