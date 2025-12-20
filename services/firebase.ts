@@ -100,7 +100,6 @@ export const FirebaseService = {
         created_at: Timestamp.now()
       });
 
-      // Create a notification for the challenged team
       await FirebaseService.sendNotification({
         toTeamId: challenge.toId,
         title: "تحدي جديد!",
@@ -144,7 +143,6 @@ export const FirebaseService = {
     } catch (e: any) { return { error: e.message }; }
   },
 
-  // Other Firebase Service functions remain same...
   getMatches: async (): Promise<Match[]> => {
     try {
       const q = query(collection(db, "matches"), orderBy("date", "asc"));

@@ -42,7 +42,7 @@ export interface LiveChannel {
   name: string;
   description: string;
   thumbnail_url: string;
-  stream_url: string;
+  embed_code: string; // تم التغيير من stream_url لدعم HTML
   is_active: boolean;
   created_at?: any;
 }

@@ -8,7 +8,7 @@ import {
   MessageSquare, ChevronDown, Settings, Upload, X, Share2, Flame, Bell, Star, Zap, MessageCircle,
   Medal, Target, Activity, Calendar, Home, Menu, Trash2, Eye, EyeOff, Lock, ShieldAlert, Shuffle,
   Megaphone, UserPlus, BarChart3, Clock, AlertCircle, Layers, Database, Info, TrendingUp, SaveAll,
-  Swords, CheckCircle2, XCircle, MoreVertical, Search, Filter, Maximize2
+  Swords, CheckCircle2, XCircle, MoreVertical, Search, Filter, Maximize2, Play
 } from 'lucide-react';
 
 type ViewState = 'home' | 'profile' | 'live' | 'hub' | 'login' | 'register' | 'admin' | 'admin-login' | 'draw' | 'matches';
@@ -897,6 +897,77 @@ export default function App() {
           </div>
         )}
         
+        {activeTab === 'live' && (
+          <div className="space-y-12">
+            <div className="bg-white p-8 md:p-12 rounded-[3.5rem] shadow-xl border border-slate-100">
+               <h3 className="text-2xl font-black mb-10 italic flex items-center gap-3"><Plus className="text-blue-600" /> إضافة قناة بث مباشرة</h3>
+               <form onSubmit={async (e) => {
+                 e.preventDefault();
+                 const t = e.target as any;
+                 setIsActionLoading(true);
+                 await FirebaseService.createLiveChannel({
+                   name: t[0].value,
+                   description: t[1].value,
+                   thumbnail_url: t[2].value || "https://images.unsplash.com/photo-1574629810360-7efbbe195018",
+                   embed_code: t[3].value, // هذا الحقل الآن يستقبل HTML
+                   is_active: true
+                 });
+                 setIsActionLoading(false);
+                 fetchData(true);
+                 (e.target as any).reset();
+                 alert("تمت إضافة القناة بنجاح.");
+               }} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 pr-2">اسم القناة</label>
+                    <input placeholder="مثلاً: قناة الهداف" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none border-none" required />
+                 </div>
+                 <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 pr-2">وصف القناة</label>
+                    <input placeholder="بث حصري للمباراة" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none border-none" required />
+                 </div>
+                 <div className="space-y-2 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 pr-2">رابط صورة الغلاف (Thumbnail)</label>
+                    <input placeholder="URL" className="w-full p-5 bg-slate-50 rounded-2xl font-bold outline-none border-none" />
+                 </div>
+                 <div className="space-y-2 md:col-span-2">
+                    <label className="text-[10px] font-black uppercase text-slate-400 pr-2">كود التضمين HTML (Embed Code)</label>
+                    <textarea 
+                      placeholder="لصق كود Iframe هنا..." 
+                      className="w-full h-48 p-5 bg-slate-50 rounded-2xl font-mono text-xs border-none outline-none focus:ring-2 ring-blue-500/20" 
+                      required 
+                    />
+                    <p className="text-[9px] text-slate-400 font-bold pr-2">مثال: &lt;iframe src="..." ...&gt;&lt;/iframe&gt;</p>
+                 </div>
+                 <button className="md:col-span-2 py-6 bg-blue-600 text-white font-black rounded-3xl shadow-xl flex items-center justify-center gap-3">
+                   {isActionLoading ? <Loader2 className="animate-spin" /> : <Save />} حفظ وتفعيل القناة
+                 </button>
+               </form>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+               {liveChannels.map(ch => (
+                 <div key={ch.id} className="bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col">
+                    <div className="h-40 rounded-2xl overflow-hidden mb-6 relative">
+                       <img src={ch.thumbnail_url} className="w-full h-full object-cover" />
+                       <div className={`absolute top-4 left-4 px-3 py-1 rounded-full text-[10px] font-black uppercase ${ch.is_active ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'}`}>
+                          {ch.is_active ? 'نشط' : 'متوقف'}
+                       </div>
+                    </div>
+                    <h4 className="font-black text-xl mb-4 truncate text-slate-800">{ch.name}</h4>
+                    <div className="flex gap-2 mt-auto">
+                       <button onClick={() => handleToggleLive(ch)} className={`flex-1 py-4 rounded-xl font-black text-[10px] uppercase ${ch.is_active ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                          {ch.is_active ? 'إيقاف مؤقت' : 'تفعيل'}
+                       </button>
+                       <button onClick={async () => { if(confirm("حذف القناة؟")){ await FirebaseService.deleteLiveChannel(ch.id!); fetchData(true); } }} className="p-4 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all">
+                          <Trash2 className="w-5 h-5" />
+                       </button>
+                    </div>
+                 </div>
+               ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'teams' && (
           <div className="bg-white p-8 md:p-12 rounded-[3rem] shadow-xl border border-slate-100 overflow-hidden">
             <div className="flex flex-col md:flex-row items-center justify-between mb-10 gap-6">
@@ -949,6 +1020,8 @@ export default function App() {
             </div>
           </div>
         )}
+        
+        {/* المكونات الأخرى للأدمن تتبع نفس النمط المستجيب */}
       </div>
     );
   };
@@ -975,20 +1048,61 @@ export default function App() {
       case 'profile': return <ProfileView />;
       case 'hub': return <HubView />;
       case 'matches': return <MatchCenterView />;
-      case 'live': return (
-        <div className="max-w-7xl mx-auto py-8 md:py-12 px-6 pb-24 text-right">
-          <h2 className="text-2xl md:text-4xl font-black flex items-center gap-4 justify-end italic mb-10 text-slate-900">البث المباشر <Radio className="text-red-600 animate-pulse" /></h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
-            {liveChannels.map(ch => (
-              <div key={ch.id} className="bg-white rounded-[2rem] p-5 shadow-xl border border-slate-100">
-                <div className="h-48 md:h-56 w-full rounded-[1.5rem] overflow-hidden mb-5"><img src={ch.thumbnail_url} className="w-full h-full object-cover" alt="Channel" /></div>
-                <h4 className="font-black text-lg md:text-xl mb-4 truncate">{ch.name}</h4>
-                <button onClick={() => window.open(ch.stream_url, '_blank')} className="w-full py-4 bg-slate-900 text-white rounded-xl font-black shadow-lg">شاهد الآن</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+      case 'live': 
+        const LiveView = () => {
+           const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
+           
+           return (
+             <div className="max-w-7xl mx-auto py-8 md:py-12 px-4 md:px-6 pb-24 text-right">
+               <AdDisplay html={ads.live_top} />
+               <div className="text-center mb-12">
+                  <h2 className="text-3xl md:text-5xl font-black italic mb-2 text-slate-900 flex items-center justify-center gap-4">
+                    البث المباشر <Radio className="text-red-600 animate-pulse w-8 h-8 md:w-12 md:h-12" />
+                  </h2>
+                  <p className="text-slate-400 font-bold text-sm md:text-base">شاهد مباريات البطولة والبرامج الرياضية مباشرة</p>
+               </div>
+               
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                 {liveChannels.length === 0 ? (
+                    <div className="col-span-full py-24 bg-white rounded-[3rem] shadow-xl border border-slate-100 text-center">
+                       <Radio className="w-16 h-16 text-slate-100 mx-auto mb-6" />
+                       <p className="text-slate-400 font-black italic text-xl">لا توجد قنوات بث نشطة حالياً.</p>
+                    </div>
+                 ) : (
+                   liveChannels.map(ch => (
+                    <div key={ch.id} className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden group">
+                       <div className="aspect-video relative overflow-hidden bg-slate-900">
+                          {activeChannelId === ch.id ? (
+                             <div className="w-full h-full flex items-center justify-center" dangerouslySetInnerHTML={{ __html: ch.embed_code }} />
+                          ) : (
+                             <>
+                                <img src={ch.thumbnail_url} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-60" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                   <button 
+                                      onClick={() => setActiveChannelId(ch.id!)}
+                                      className="w-16 h-16 md:w-20 md:h-20 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-110 transition-transform active:scale-95"
+                                   >
+                                      <Play className="w-8 h-8 md:w-10 md:h-10 fill-current ml-1" />
+                                   </button>
+                                </div>
+                                <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest animate-pulse">
+                                   <div className="w-2 h-2 bg-white rounded-full"></div> مباشر
+                                </div>
+                             </>
+                          )}
+                       </div>
+                       <div className="p-8">
+                          <h4 className="font-black text-xl md:text-2xl mb-3 text-slate-800">{ch.name}</h4>
+                          <p className="text-slate-500 font-bold text-sm md:text-base leading-relaxed">{ch.description}</p>
+                       </div>
+                    </div>
+                   ))
+                 )}
+               </div>
+             </div>
+           );
+        }
+        return <LiveView />;
       case 'login': return <LoginView />;
       case 'register': return <RegisterView />;
       case 'admin-login': return <AdminLoginView />;
