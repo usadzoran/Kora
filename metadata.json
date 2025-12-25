@@ -1,8 +1,5 @@
 {
-  "description": "Sports Team Registration Portal",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ],
-  "name": "TeamReg"
+  "description": "Touristique app to help you discover the world",
+  "requestFramePermissions": [],
+  "name": "Travel with me"
 }

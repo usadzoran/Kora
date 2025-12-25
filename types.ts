@@ -1,102 +1,73 @@
+export interface City {
+  id: string;
+  name: string;
+  image: string;
+  places: Place[];
+  hotels: Hotel[];
+}
+
+export interface Place {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  price?: string;
+  description: string;
+  category: 'tourist' | 'featured';
+  mapX: number;
+  mapY: number;
+}
+
+export interface Hotel {
+  id: string;
+  name: string;
+  image: string;
+  rating: number;
+  pricePerNight: string;
+  description: string;
+  mapX: number;
+  mapY: number;
+}
+
+export type ViewState = 'home' | 'city' | 'place' | 'map' | 'profile' | 'itinerary';
 
 export interface TeamRegistration {
-  id?: string;
+  id: string;
   team_name: string;
-  coach_name: string;
   contact_email: string;
-  password?: string;
-  region: string;
-  municipality?: string; 
-  players_count?: number; 
-  created_at?: any;
   logo_url?: string;
-  bio?: string;
   wins?: number;
   losses?: number;
-  gallery?: string[]; 
+  bio?: string;
+  created_at?: string;
 }
 
-export interface Comment {
+export interface Message {
   id: string;
-  teamId: string;
-  teamName: string;
-  teamLogo: string;
-  text: string;
-  created_at: any;
+  senderId: string;
+  receiverId: string;
+  content: string;
+  timestamp: string;
+  isRead: boolean;
 }
 
-export interface Post {
-  id?: string;
-  teamId: string;
-  teamName: string;
-  teamLogo: string;
-  content?: string; 
-  imageUrl?: string;
-  likes?: string[]; 
-  comments?: Comment[];
-  created_at: any;
+export interface NewsItem {
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
 }
 
-export interface LiveChannel {
-  id?: string;
-  name: string;
-  description: string;
-  thumbnail_url: string;
-  embed_code: string; // تم التغيير من stream_url لدعم HTML
+export interface SiteAd {
+  zone: string;
+  content: string;
   is_active: boolean;
-  created_at?: any;
-}
-
-export interface AdConfig {
-  under_header: string;
-  home_hero_bottom: string;
-  after_draw: string;
-  hub_top: string;
-  hub_bottom: string;
-  matches_top: string;
-  matches_bottom: string;
-  live_top: string;
-  profile_top: string;
 }
 
 export interface Match {
-  id?: string;
-  homeTeamId: string;
-  homeTeamName: string;
-  homeTeamLogo: string;
-  awayTeamId: string;
-  awayTeamName: string;
-  awayTeamLogo: string;
-  date: string; // YYYY-MM-DD
-  time: string; // HH:mm
-  scoreHome: number;
-  scoreAway: number;
-  status: 'upcoming' | 'finished' | 'live';
-  tournament_round?: string;
-  created_at: any;
-}
-
-export interface Challenge {
-  id?: string;
-  fromId: string;
-  fromName: string;
-  fromLogo: string;
-  toId: string;
-  status: 'pending' | 'accepted' | 'declined';
-  created_at: any;
-}
-
-export interface AppNotification {
-  id?: string;
-  toTeamId: string;
-  title: string;
-  message: string;
-  type: 'challenge' | 'match' | 'system';
-  isRead: boolean;
-  relatedId?: string;
-  created_at: any;
-}
-
-export interface VisitorStats {
-  total_visits: number;
+  id: string;
+  team1_id?: string;
+  team2_id?: string;
+  score1?: number;
+  score2?: number;
 }
